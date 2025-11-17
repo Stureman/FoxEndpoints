@@ -1,0 +1,126 @@
+@TestAPI_HostAddress = http://localhost:5255
+
+### Get Weather Forecast (Original Endpoint)
+GET {{TestAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+### Get User by ID (Request + Response Endpoint)
+GET {{TestAPI_HostAddress}}/users/1
+Accept: application/json
+
+###
+
+### Get User by ID - Example with different ID
+GET {{TestAPI_HostAddress}}/users/42
+Accept: application/json
+
+###
+
+### Health Check (Response Only - No Request Endpoint)
+GET {{TestAPI_HostAddress}}/health
+Accept: application/json
+
+###
+
+### Delete User (Request Only - No Response Endpoint - Returns 204 No Content)
+DELETE {{TestAPI_HostAddress}}/users/1
+
+###
+
+### Delete User - Example with different ID
+DELETE {{TestAPI_HostAddress}}/users/99
+
+###
+
+### Create User (POST with JSON body)
+POST {{TestAPI_HostAddress}}/users
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "age": 30,
+  "phoneNumber": "+1-555-0123"
+}
+
+###
+
+### Create User - Another Example
+POST {{TestAPI_HostAddress}}/users
+Content-Type: application/json
+
+{
+  "name": "Jane Smith",
+  "email": "jane.smith@example.com",
+  "age": 28,
+  "phoneNumber": "+1-555-0456"
+}
+
+###
+
+### Update User (PUT with route param {id} AND JSON body)
+PUT {{TestAPI_HostAddress}}/users/1
+Content-Type: application/json
+
+{
+  "name": "John Doe Updated",
+  "email": "john.updated@example.com",
+  "isActive": true,
+  "age": 31
+}
+
+###
+
+### Update User - Partial Update
+PUT {{TestAPI_HostAddress}}/users/42
+Content-Type: application/json
+
+{
+  "name": "Updated Name Only",
+  "isActive": false
+}
+
+###
+
+### Update User Status (POST with route param AND JSON body, returns 204)
+POST {{TestAPI_HostAddress}}/users/1/status
+Content-Type: application/json
+
+{
+  "isActive": false,
+  "reason": "User requested account suspension",
+  "effectiveDate": "2025-11-17T10:00:00Z"
+}
+
+###
+
+### Update User Status - Activate User
+POST {{TestAPI_HostAddress}}/users/42/status
+Content-Type: application/json
+
+{
+  "isActive": true,
+  "reason": "Account reactivated by admin"
+}
+
+###
+
+### Search Users (GET with multiple query parameters)
+GET {{TestAPI_HostAddress}}/users/search?name=John&minAge=25&maxAge=40&isActive=true&page=1&pageSize=5
+Accept: application/json
+
+###
+
+### Search Users - Different Query
+GET {{TestAPI_HostAddress}}/users/search?minAge=30&isActive=false&page=2&pageSize=10
+Accept: application/json
+
+###
+
+### Search Users - Minimal Query
+GET {{TestAPI_HostAddress}}/users/search?name=Jane
+Accept: application/json
+
+###
