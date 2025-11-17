@@ -13,9 +13,9 @@ public class TestEndpoint : Endpoint<TestRequest, TestResponse>
             .Produces<TestResponse>(200);
     }
 
-    public override Task<TestResponse> HandleAsync(TestRequest request, CancellationToken ct)
+    public override async Task HandleAsync(TestRequest request, CancellationToken ct)
     {
-        return Task.FromResult(new TestResponse
+        await Send.OkAsync(new TestResponse
         {
             Message = $"Hello, {request.Name}!",
             Count = request.Count * 2

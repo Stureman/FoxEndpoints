@@ -15,7 +15,7 @@ public class GetHealthEndpoint : EndpointWithoutRequest<HealthResponse>
             .Produces<HealthResponse>(200);
     }
 
-    public override Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
         var response = new HealthResponse
         {
@@ -25,7 +25,7 @@ public class GetHealthEndpoint : EndpointWithoutRequest<HealthResponse>
             Version = "1.0.0"
         };
 
-        return Task.FromResult(response);
+        await Send.OkAsync(response);
     }
 }
 

@@ -22,9 +22,16 @@ public class CreateUserEndpoint : Endpoint<CreateUserRequest, CreateUserResponse
             .Produces<CreateUserResponse>(201);
     }
 
-    public override Task<CreateUserResponse> HandleAsync(CreateUserRequest request, CancellationToken ct)
+    public override async Task HandleAsync(CreateUserRequest request, CancellationToken ct)
     {
         _logger.LogInformation("Creating user: {Name}, {Email}", request.Name, request.Email);
+
+        // Example validation with early return
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            await Send.BadRequestAsync("Name is required");
+            return;
+        }
 
         // Simulate user creation
         var newUserId = Random.Shared.Next(1000, 9999);
@@ -39,7 +46,11 @@ public class CreateUserEndpoint : Endpoint<CreateUserRequest, CreateUserResponse
             Message = $"User '{request.Name}' created successfully!"
         };
 
-        return Task.FromResult(response);
+        await Send.CreatedAsync(response);
+        return;
+        
+        // This code is unreachable and will show compiler warning
+        // Console.WriteLine("This should not be reached");
     }
 }
 

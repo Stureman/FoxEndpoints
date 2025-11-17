@@ -23,7 +23,7 @@ public class UpdateUserStatusEndpoint : EndpointWithoutResponse<UpdateUserStatus
             .Produces(204);
     }
 
-    public override Task HandleAsync(UpdateUserStatusRequest request, CancellationToken ct)
+    public override async Task HandleAsync(UpdateUserStatusRequest request, CancellationToken ct)
     {
         _logger.LogInformation(
             "Updating status for user {UserId}: IsActive={IsActive}, Reason={Reason}", 
@@ -33,7 +33,7 @@ public class UpdateUserStatusEndpoint : EndpointWithoutResponse<UpdateUserStatus
 
         // In a real application, you would update the user status in the database here
         
-        return Task.CompletedTask;
+        await Send.NoContentAsync();
     }
 }
 

@@ -23,7 +23,7 @@ public class UpdateUserEndpoint : Endpoint<UpdateUserRequest, UpdateUserResponse
             .Produces<UpdateUserResponse>(200);
     }
 
-    public override Task<UpdateUserResponse> HandleAsync(UpdateUserRequest request, CancellationToken ct)
+    public override async Task HandleAsync(UpdateUserRequest request, CancellationToken ct)
     {
         _logger.LogInformation(
             "Updating user {UserId}: Name={Name}, Email={Email}, IsActive={IsActive}", 
@@ -43,7 +43,7 @@ public class UpdateUserEndpoint : Endpoint<UpdateUserRequest, UpdateUserResponse
             Message = $"User {request.Id} updated successfully!"
         };
 
-        return Task.FromResult(response);
+        await Send.OkAsync(response);
     }
 }
 
