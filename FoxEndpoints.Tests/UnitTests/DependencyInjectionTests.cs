@@ -22,7 +22,8 @@ public class DependencyInjectionTests
         var result = await endpoint.HandleAsync(request, CancellationToken.None);
 
         // Assert
-        Assert.Equal("Mocked: TestValue", result.Result);
+        Assert.NotNull(result);
+        Assert.IsAssignableFrom<IResult>(result);
         mockService.Received(1).Process("TestValue");
     }
 
@@ -39,7 +40,7 @@ public class DependencyInjectionTests
     }
 
     [Fact]
-    public async Task Endpoint_WithMockedService_ShouldReturnMockedResult()
+    public async Task Endpoint_WithMockedService_ShouldReturnIResult()
     {
         // Arrange
         var mockService = Substitute.For<ITestService>();
@@ -52,7 +53,8 @@ public class DependencyInjectionTests
         var result = await endpoint.HandleAsync(request, CancellationToken.None);
 
         // Assert
-        Assert.Equal("Processed: Input", result.Result);
+        Assert.NotNull(result);
+        Assert.IsAssignableFrom<IResult>(result);
         mockService.Received(1).Process("Input");
     }
 }

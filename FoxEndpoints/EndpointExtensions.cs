@@ -10,64 +10,118 @@ public static class EndpointExtensions
 {
     private static readonly Dictionary<Type, Func<IServiceProvider, object>> _endpointFactories = new();
 
-    public static WebApplication UseFoxEndpoints(this WebApplication app)
+    public static FoxEndpointsBuilder UseFoxEndpoints(this WebApplication app)
     {
-        var entryAssembly = Assembly.GetEntryAssembly()
-                            ?? throw new InvalidOperationException("EntryAssembly is null.");
+        return new FoxEndpointsBuilder(app);
+    }
 
-        var endpointTypes = entryAssembly
-            .GetTypes()
-            .Where(t => !t.IsAbstract && IsEndpointType(t))
-            .ToList();
+    /// <summary>
+    /// Builder for configuring FoxEndpoints globally.
+    /// </summary>
+    public class FoxEndpointsBuilder
+    {
+        private readonly WebApplication _app;
+        private bool _requireAuthorization;
+        private bool _isBuilt;
 
-        foreach (var type in endpointTypes)
+        internal FoxEndpointsBuilder(WebApplication app)
         {
-            // -----------------------------------------------
-            // 1) Skapa en design-instans för Configure()
-            //    Denna "kastas" sedan bort, används bara för att hämta Route och Methods
-            // -----------------------------------------------
-            var designInstance = (EndpointBase)CreateDesignInstance(type);
-            designInstance.Configure();
-
-            if (string.IsNullOrWhiteSpace(designInstance.Route) || designInstance.Methods.Length == 0)
-                throw new InvalidOperationException(
-                    $"Endpoint {type.Name} must call Get/Post/Put/Delete inside Configure().");
-
-            // -----------------------------------------------
-            // 2) Skapa en DI-factory och cache:a den
-            //    => snabbaste sättet att skapa endpoints
-            // -----------------------------------------------
-            var factory = CreateFactory(type);
-            _endpointFactories[type] = factory;
-
-            // -----------------------------------------------
-            // 3) Hämta static BuildHandler(Type, string)
-            // -----------------------------------------------
-            var baseType = GetEndpointBaseType(type)!;
-
-            var buildHandlerMethod = baseType.GetMethod(
-                "BuildHandler",
-                BindingFlags.NonPublic | BindingFlags.Static
-            ) ?? throw new InvalidOperationException($"Missing BuildHandler in {type.Name}");
-
-            var httpMethod = designInstance.Methods[0]; // Get the HTTP method (GET, POST, DELETE, etc.)
-            var handler = (Delegate)buildHandlerMethod.Invoke(null, new object[] { type, httpMethod })!;
-
-            // -----------------------------------------------
-            // 4) Mappa endpoint
-            // -----------------------------------------------
-            var builder = app.MapMethods(designInstance.Route, designInstance.Methods, handler);
-
-            builder.WithName(type.Name);
-
-            var attrs = type.GetCustomAttributes(true).Cast<object>().ToArray();
-            if (attrs.Length > 0)
-                builder.WithMetadata(attrs);
-
-            designInstance.ApplyConfigurators(builder);
+            _app = app;
         }
 
-        return app;
+        /// <summary>
+        /// Requires authorization for all FoxEndpoints.
+        /// Example: app.UseFoxEndpoints().RequireAuthorization();
+        /// This will automatically trigger endpoint registration.
+        /// </summary>
+        public WebApplication RequireAuthorization()
+        {
+            _requireAuthorization = true;
+            return Build();
+        }
+
+        /// <summary>
+        /// Implicitly registers all endpoints when the builder is used where WebApplication is expected.
+        /// This maintains backward compatibility with code like: app.UseFoxEndpoints();
+        /// </summary>
+        public static implicit operator WebApplication(FoxEndpointsBuilder builder)
+        {
+            return builder.Build();
+        }
+
+        internal WebApplication Build()
+        {
+            // Prevent double-building
+            if (_isBuilt)
+                return _app;
+            
+            _isBuilt = true;
+
+            var entryAssembly = Assembly.GetEntryAssembly()
+                                ?? throw new InvalidOperationException("EntryAssembly is null.");
+
+            var endpointTypes = entryAssembly
+                .GetTypes()
+                .Where(t => !t.IsAbstract && IsEndpointType(t))
+                .ToList();
+
+            foreach (var type in endpointTypes)
+            {
+                // -----------------------------------------------
+                // 1) Skapa en design-instans för Configure()
+                //    Denna "kastas" sedan bort, används bara för att hämta Route och Methods
+                // -----------------------------------------------
+                var designInstance = (EndpointBase)CreateDesignInstance(type);
+                designInstance.Configure();
+
+                if (string.IsNullOrWhiteSpace(designInstance.Route) || designInstance.Methods.Length == 0)
+                    throw new InvalidOperationException(
+                        $"Endpoint {type.Name} must call Get/Post/Put/Delete inside Configure().");
+
+                // -----------------------------------------------
+                // 2) Skapa en DI-factory och cache:a den
+                //    => snabbaste sättet att skapa endpoints
+                // -----------------------------------------------
+                var factory = CreateFactory(type);
+                _endpointFactories[type] = factory;
+
+                // -----------------------------------------------
+                // 3) Hämta static BuildHandler(Type, string)
+                // -----------------------------------------------
+                var baseType = GetEndpointBaseType(type)!;
+
+                var buildHandlerMethod = baseType.GetMethod(
+                    "BuildHandler",
+                    BindingFlags.NonPublic | BindingFlags.Static
+                ) ?? throw new InvalidOperationException($"Missing BuildHandler in {type.Name}");
+
+                var httpMethod = designInstance.Methods[0]; // Get the HTTP method (GET, POST, DELETE, etc.)
+                var handler = (Delegate)buildHandlerMethod.Invoke(null, new object[] { type, httpMethod })!;
+
+                // -----------------------------------------------
+                // 4) Mappa endpoint
+                // -----------------------------------------------
+                var builder = _app.MapMethods(designInstance.Route, designInstance.Methods, handler);
+
+                builder.WithName(type.Name);
+
+                var attrs = type.GetCustomAttributes(true).Cast<object>().ToArray();
+                if (attrs.Length > 0)
+                    builder.WithMetadata(attrs);
+
+                designInstance.ApplyConfigurators(builder);
+                
+                // -----------------------------------------------
+                // 5) Apply global authorization if enabled
+                // -----------------------------------------------
+                if (_requireAuthorization)
+                {
+                    builder.RequireAuthorization();
+                }
+            }
+
+            return _app;
+        }
     }
 
     // ---------------------------------------

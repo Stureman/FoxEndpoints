@@ -15,7 +15,7 @@ public class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
             .Produces<GetUserResponse>(200);
     }
 
-    public override async Task HandleAsync(GetUserRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(GetUserRequest request, CancellationToken ct)
     {
         // Simulate user retrieval
         var response = new GetUserResponse
@@ -27,7 +27,7 @@ public class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
             CreatedAt = DateTime.UtcNow.AddDays(-request.Id)
         };
 
-        await Send.OkAsync(response);
+        return await Send.OkAsync(response);
     }
 }
 

@@ -5,9 +5,7 @@ namespace FoxEndpoints;
 
 public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 {
-    private IResult? _result;
-    
-    public abstract Task HandleAsync(TRequest request, CancellationToken ct);
+    public abstract Task<IResult> HandleAsync(TRequest request, CancellationToken ct);
 
     internal static Delegate BuildHandler(Type endpointType, string httpMethod)
     {
@@ -30,14 +28,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
                 try
                 {
                     var request = EndpointExtensions.BindFromHttpContext<TRequest>(ctx);
-                    await ep.HandleAsync(request, ct);
-
-                    // Check if response was already sent via Send methods
-                    if (ctx.ResponseStarted())
-                        return ep._result!;
-                    
-                    // Auto-send fallback if no Send method was called
-                    return Results.Ok();
+                    return await ep.HandleAsync(request, ct);
                 }
                 finally
                 {
@@ -60,14 +51,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
                 {
                     // Merge route parameters into the request object (e.g., {id} from /users/{id})
                     var mergedRequest = EndpointExtensions.MergeRouteParameters(req, ctx);
-                    await ep.HandleAsync(mergedRequest, ct);
-
-                    // Check if response was already sent via Send methods
-                    if (ctx.ResponseStarted())
-                        return ep._result!;
-                    
-                    // Auto-send fallback if no Send method was called
-                    return Results.Ok();
+                    return await ep.HandleAsync(mergedRequest, ct);
                 }
                 finally
                 {
@@ -87,14 +71,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 
             try
             {
-                await ep.HandleAsync(req, ct);
-
-                // Check if response was already sent via Send methods
-                if (ctx.ResponseStarted())
-                    return ep._result!;
-                
-                // Auto-send fallback if no Send method was called
-                return Results.Ok();
+                return await ep.HandleAsync(req, ct);
             }
             finally
             {
@@ -105,7 +82,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 
     /// <summary>
     /// Type-safe Send methods for returning responses from endpoints.
-    /// All methods return Task to allow natural early termination via return statements.
+    /// All methods return Task&lt;IResult&gt; to allow natural early termination via return statements.
     /// </summary>
     protected static class Send
     {
@@ -118,196 +95,131 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
         /// <summary>
         /// Returns a 200 OK response with the specified response object.
         /// </summary>
-        public static Task<Void> OkAsync(TResponse response)
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.Ok(response);
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> OkAsync(TResponse response)
+            => Task.FromResult<IResult>(Results.Ok(response));
 
         /// <summary>
         /// Returns a 200 OK response with an empty body.
         /// </summary>
-        public static Task<Void> OkAsync()
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.Ok();
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> OkAsync()
+            => Task.FromResult<IResult>(Results.Ok());
 
         /// <summary>
         /// Returns a 201 Created response with the specified response object.
         /// </summary>
-        public static Task<Void> CreatedAsync(TResponse response)
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.Created(string.Empty, response);
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> CreatedAsync(TResponse response)
+            => Task.FromResult<IResult>(Results.Created(string.Empty, response));
 
         /// <summary>
         /// Returns a 201 Created response with the specified URI and response object.
         /// </summary>
-        public static Task<Void> CreatedAsync(string uri, TResponse response)
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.Created(uri, response);
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> CreatedAsync(string uri, TResponse response)
+            => Task.FromResult<IResult>(Results.Created(uri, response));
 
         /// <summary>
         /// Returns a 204 No Content response.
         /// </summary>
-        public static Task<Void> NoContentAsync()
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.NoContent();
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> NoContentAsync()
+            => Task.FromResult<IResult>(Results.NoContent());
 
         /// <summary>
         /// Returns a 404 Not Found response with an empty body.
         /// </summary>
-        public static Task<Void> NotFoundAsync()
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.NotFound();
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> NotFoundAsync()
+            => Task.FromResult<IResult>(Results.NotFound());
 
         /// <summary>
         /// Returns a 404 Not Found response with a message wrapped in ProblemDetails.
         /// </summary>
-        public static Task<Void> NotFoundAsync(string message)
+        public static Task<IResult> NotFoundAsync(string message)
         {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
             var problemDetails = new ProblemDetails
             {
                 Status = 404,
                 Title = "Not Found",
                 Detail = message
             };
-            ep._result = Results.NotFound(problemDetails);
-            return Task.FromResult(Void.Instance);
+            return Task.FromResult<IResult>(Results.NotFound(problemDetails));
         }
 
         /// <summary>
         /// Returns a 400 Bad Request response with a message wrapped in ProblemDetails.
         /// </summary>
-        public static Task<Void> BadRequestAsync(string message)
+        public static Task<IResult> BadRequestAsync(string message)
         {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
             var problemDetails = new ProblemDetails
             {
                 Status = 400,
                 Title = "Bad Request",
                 Detail = message
             };
-            ep._result = Results.BadRequest(problemDetails);
-            return Task.FromResult(Void.Instance);
+            return Task.FromResult<IResult>(Results.BadRequest(problemDetails));
         }
 
         /// <summary>
         /// Returns a 400 Bad Request response with custom ProblemDetails.
         /// </summary>
-        public static Task<Void> BadRequestAsync(ProblemDetails problemDetails)
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.BadRequest(problemDetails);
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> BadRequestAsync(ProblemDetails problemDetails)
+            => Task.FromResult<IResult>(Results.BadRequest(problemDetails));
 
         /// <summary>
         /// Returns a 401 Unauthorized response.
         /// </summary>
-        public static Task<Void> UnauthorizedAsync()
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.Unauthorized();
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> UnauthorizedAsync()
+            => Task.FromResult<IResult>(Results.Unauthorized());
 
         /// <summary>
         /// Returns a 401 Unauthorized response with a message wrapped in ProblemDetails.
         /// </summary>
-        public static Task<Void> UnauthorizedAsync(string message)
+        public static Task<IResult> UnauthorizedAsync(string message)
         {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
             var problemDetails = new ProblemDetails
             {
                 Status = 401,
                 Title = "Unauthorized",
                 Detail = message
             };
-            ep._result = Results.Problem(problemDetails);
-            return Task.FromResult(Void.Instance);
+            return Task.FromResult<IResult>(Results.Problem(problemDetails));
         }
 
         /// <summary>
         /// Returns a 403 Forbidden response.
         /// </summary>
-        public static Task<Void> ForbiddenAsync()
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.Forbid();
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> ForbiddenAsync()
+            => Task.FromResult<IResult>(Results.Forbid());
 
         /// <summary>
         /// Returns a 403 Forbidden response with a message wrapped in ProblemDetails.
         /// </summary>
-        public static Task<Void> ForbiddenAsync(string message)
+        public static Task<IResult> ForbiddenAsync(string message)
         {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
             var problemDetails = new ProblemDetails
             {
                 Status = 403,
                 Title = "Forbidden",
                 Detail = message
             };
-            ep._result = Results.Problem(problemDetails);
-            return Task.FromResult(Void.Instance);
+            return Task.FromResult<IResult>(Results.Problem(problemDetails));
         }
 
         /// <summary>
         /// Returns a 409 Conflict response with a message wrapped in ProblemDetails.
         /// </summary>
-        public static Task<Void> ConflictAsync(string message)
+        public static Task<IResult> ConflictAsync(string message)
         {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
             var problemDetails = new ProblemDetails
             {
                 Status = 409,
                 Title = "Conflict",
                 Detail = message
             };
-            ep._result = Results.Conflict(problemDetails);
-            return Task.FromResult(Void.Instance);
+            return Task.FromResult<IResult>(Results.Conflict(problemDetails));
         }
 
         /// <summary>
         /// Returns a 200 OK response with a file stream.
         /// </summary>
-        public static Task<Void> FileAsync(Stream fileStream, string contentType, string? fileName = null)
-        {
-            var ep = CurrentEndpoint;
-            ep.HttpContext.MarkResponseStart();
-            ep._result = Results.File(fileStream, contentType, fileName);
-            return Task.FromResult(Void.Instance);
-        }
+        public static Task<IResult> FileAsync(Stream fileStream, string contentType, string? fileName = null)
+            => Task.FromResult<IResult>(Results.File(fileStream, contentType, fileName));
     }
 }

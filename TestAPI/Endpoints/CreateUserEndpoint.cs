@@ -1,5 +1,4 @@
 using FoxEndpoints;
-using Void = FoxEndpoints.Void;
 
 namespace TestAPI.Endpoints;
 
@@ -23,7 +22,7 @@ public class CreateUserEndpoint : Endpoint<CreateUserRequest, CreateUserResponse
             .Produces<CreateUserResponse>(201);
     }
 
-    public override async Task<Void> HandleAsync(CreateUserRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(CreateUserRequest request, CancellationToken ct)
     {
         _logger.LogInformation("Creating user: {Name}, {Email}", request.Name, request.Email);
 
@@ -47,7 +46,6 @@ public class CreateUserEndpoint : Endpoint<CreateUserRequest, CreateUserResponse
         };
 
         return await Send.CreatedAsync(response);
-        Console.WriteLine("Loggas!!");
     }
 }
 

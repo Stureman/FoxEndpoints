@@ -6,6 +6,36 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Add authentication and authorization
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        // For testing purposes, we'll use a simple bearer token validation
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // For testing: accept any token that starts with "test-token"
+                var token = context.Request.Headers.Authorization.ToString().Replace("Bearer ", "");
+                if (token.StartsWith("test-token"))
+                {
+                    // Create a test identity
+                    var claims = new[]
+                    {
+                        new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "TestUser"),
+                        new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, "Admin")
+                    };
+                    var identity = new System.Security.Claims.ClaimsIdentity(claims, "Bearer");
+                    context.Principal = new System.Security.Claims.ClaimsPrincipal(identity);
+                    context.Success();
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -16,8 +46,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Add authentication and authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Map FoxEndpoints
-app.UseFoxEndpoints();
+// Option 1: No global authorization (endpoints opt-in individually via .RequireAuthorization())
+app.UseFoxEndpoints().RequireAuthorization();
+
+// Option 2: Global authorization (ALL endpoints require auth - uncomment to enable)
+// app.UseFoxEndpoints().RequireAuthorization();
 
 var summaries = new[]
 {

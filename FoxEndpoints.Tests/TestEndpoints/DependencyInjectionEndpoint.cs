@@ -19,10 +19,10 @@ public class DependencyInjectionEndpoint : Endpoint<DependencyRequest, Dependenc
             .Produces<DependencyResponse>(200);
     }
 
-    public override async Task HandleAsync(DependencyRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(DependencyRequest request, CancellationToken ct)
     {
         var result = _testService.Process(request.Value);
-        await Send.OkAsync(new DependencyResponse { Result = result });
+        return await Send.OkAsync(new DependencyResponse { Result = result });
     }
 }
 

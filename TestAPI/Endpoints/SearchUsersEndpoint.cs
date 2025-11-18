@@ -23,7 +23,7 @@ public class SearchUsersEndpoint : Endpoint<SearchUsersRequest, SearchUsersRespo
             .Produces<SearchUsersResponse>(200);
     }
 
-    public override async Task HandleAsync(SearchUsersRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(SearchUsersRequest request, CancellationToken ct)
     {
         _logger.LogInformation(
             "Searching users: Name={Name}, MinAge={MinAge}, MaxAge={MaxAge}, IsActive={IsActive}, Page={Page}, PageSize={PageSize}", 
@@ -60,7 +60,7 @@ public class SearchUsersEndpoint : Endpoint<SearchUsersRequest, SearchUsersRespo
             SearchCriteria = $"Name={request.Name}, Age={request.MinAge}-{request.MaxAge}, Active={request.IsActive}"
         };
 
-        await Send.OkAsync(response);
+        return await Send.OkAsync(response);
     }
 }
 

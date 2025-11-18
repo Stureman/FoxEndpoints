@@ -12,9 +12,9 @@ public class NoRequestEndpoint : EndpointWithoutRequest<NoRequestResponse>
             .Produces<NoRequestResponse>(200);
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task<IResult> HandleAsync(CancellationToken ct)
     {
-        await Send.OkAsync(new NoRequestResponse
+        return await Send.OkAsync(new NoRequestResponse
         {
             Timestamp = DateTime.UtcNow,
             Status = "OK"

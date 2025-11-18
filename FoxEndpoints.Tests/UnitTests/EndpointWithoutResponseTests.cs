@@ -32,7 +32,7 @@ public class EndpointWithoutResponseTests
     }
 
     [Fact]
-    public async Task EndpointWithoutResponse_HandleAsync_ShouldExecuteWithoutReturningValue()
+    public async Task EndpointWithoutResponse_HandleAsync_ShouldReturnIResult()
     {
         // Arrange
         var endpoint = new NoResponseEndpoint();
@@ -40,9 +40,11 @@ public class EndpointWithoutResponseTests
         var ct = CancellationToken.None;
 
         // Act
-        await endpoint.HandleAsync(request, ct);
+        var result = await endpoint.HandleAsync(request, ct);
 
         // Assert
         Assert.True(endpoint.WasExecuted);
+        Assert.NotNull(result);
+        Assert.IsAssignableFrom<IResult>(result);
     }
 }

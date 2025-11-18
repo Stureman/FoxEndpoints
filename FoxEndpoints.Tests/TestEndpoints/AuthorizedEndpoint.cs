@@ -14,9 +14,9 @@ public class AuthorizedEndpoint : Endpoint<AuthorizedRequest, AuthorizedResponse
             .Produces(401);
     }
 
-    public override async Task HandleAsync(AuthorizedRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(AuthorizedRequest request, CancellationToken ct)
     {
-        await Send.OkAsync(new AuthorizedResponse
+        return await Send.OkAsync(new AuthorizedResponse
         {
             Message = "You are authorized!",
             User = request.Username

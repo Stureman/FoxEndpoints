@@ -109,29 +109,29 @@ public class HttpVerbTests
 internal class GetEndpoint : Endpoint<object, object>
 {
     public override void Configure() => Get("/test");
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }
 
 internal class PostEndpoint : Endpoint<object, object>
 {
     public override void Configure() => Post("/test");
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }
 
 internal class PutEndpoint : Endpoint<object, object>
 {
     public override void Configure() => Put("/test");
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }
 
 internal class DeleteEndpoint : Endpoint<object, object>
 {
     public override void Configure() => Delete("/test");
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }
 
 internal class DynamicRouteEndpoint : Endpoint<object, object>
@@ -144,6 +144,6 @@ internal class DynamicRouteEndpoint : Endpoint<object, object>
     }
 
     public override void Configure() => Get(_route);
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }

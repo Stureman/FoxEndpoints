@@ -108,8 +108,8 @@ internal class TestEndpointForBuilder : Endpoint<object, object>
             .WithTags("Test");
     }
 
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }
 
 internal class TestEndpointWithProduces : Endpoint<object, object>
@@ -121,8 +121,8 @@ internal class TestEndpointWithProduces : Endpoint<object, object>
             .Produces(404);
     }
 
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }
 
 internal class TestEndpointWithAuth : Endpoint<object, object>
@@ -133,8 +133,8 @@ internal class TestEndpointWithAuth : Endpoint<object, object>
             .RequireAuthorization();
     }
 
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }
 
 internal class TestEndpointChained : Endpoint<object, object>
@@ -148,6 +148,6 @@ internal class TestEndpointChained : Endpoint<object, object>
             .RequireAuthorization();
     }
 
-    public override Task<object> HandleAsync(object request, CancellationToken ct)
-        => Task.FromResult<object>(new { });
+    public override Task<IResult> HandleAsync(object request, CancellationToken ct)
+        => Task.FromResult<IResult>(Results.Ok(new { }));
 }

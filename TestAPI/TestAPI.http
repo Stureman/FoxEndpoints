@@ -113,9 +113,36 @@ Accept: application/json
 
 ###
 
-### Search Users - Different Query
-GET {{TestAPI_HostAddress}}/users/search?minAge=30&isActive=false&page=2&pageSize=10
+### Search Users - Minimal Query
+GET {{TestAPI_HostAddress}}/users/search?name=Jane
 Accept: application/json
+
+###
+
+### Test Authorization - Access Secure Endpoint WITHOUT Token (Should return 401 Unauthorized)
+GET {{TestAPI_HostAddress}}/secure/data/1
+Accept: application/json
+
+###
+
+### Test Authorization - Access Secure Endpoint WITH Valid Token (Should return 200 OK)
+GET {{TestAPI_HostAddress}}/secure/data/1
+Accept: application/json
+Authorization: Bearer test-token-12345
+
+###
+
+### Test Authorization - Access Secure Endpoint WITH Invalid Token (Should return 401 Unauthorized)
+GET {{TestAPI_HostAddress}}/secure/data/1
+Accept: application/json
+Authorization: Bearer invalid-token
+
+###
+
+### Test Authorization - Access Secure Endpoint WITH Valid Token (Different ID)
+GET {{TestAPI_HostAddress}}/secure/data/42
+Accept: application/json
+Authorization: Bearer test-token-abc123
 
 ###
 

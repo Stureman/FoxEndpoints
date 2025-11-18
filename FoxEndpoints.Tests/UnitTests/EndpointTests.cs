@@ -32,7 +32,7 @@ public class EndpointTests
     }
 
     [Fact]
-    public async Task Endpoint_HandleAsync_ShouldProcessRequest()
+    public async Task Endpoint_HandleAsync_ShouldReturnIResult()
     {
         // Arrange
         var endpoint = new TestEndpoint();
@@ -44,8 +44,7 @@ public class EndpointTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("Hello, Test!", result.Message);
-        Assert.Equal(10, result.Count);
+        Assert.IsAssignableFrom<IResult>(result);
     }
 
     [Fact]

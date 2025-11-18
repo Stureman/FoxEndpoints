@@ -13,10 +13,10 @@ public class NoResponseEndpoint : EndpointWithoutResponse<NoResponseRequest>
             .WithName("NoResponseEndpoint");
     }
 
-    public override async Task HandleAsync(NoResponseRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(NoResponseRequest request, CancellationToken ct)
     {
         WasExecuted = true;
-        await Send.NoContentAsync();
+        return await Send.NoContentAsync();
     }
 }
 

@@ -26,16 +26,34 @@ public class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
         Get("/users/{id}");
     }
 
-    public override async Task<GetUserResponse> HandleAsync(GetUserRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(GetUserRequest request, CancellationToken ct)
     {
         // Your endpoint logic here
-        return new GetUserResponse
+        var response = new GetUserResponse
         {
             Id = request.Id,
             Name = "John Doe",
             Email = "john.doe@example.com"
         };
+        
+        return await Send.OkAsync(response);
     }
+}
+```
+
+### Early Return with Validation
+
+```csharp
+public override async Task<IResult> HandleAsync(CreateUserRequest request, CancellationToken ct)
+{
+    // Validation with natural early return
+    if (string.IsNullOrWhiteSpace(request.Name))
+    {
+        return await Send.BadRequestAsync("Name is required");
+    }
+
+    var response = CreateUser(request);
+    return await Send.CreatedAsync(response);
 }
 ```
 
@@ -49,9 +67,10 @@ public class GetHealthEndpoint : EndpointWithoutRequest<HealthResponse>
         Get("/health");
     }
 
-    public override async Task<HealthResponse> HandleAsync(CancellationToken ct)
+    public override async Task<IResult> HandleAsync(CancellationToken ct)
     {
-        return new HealthResponse { Status = "Healthy" };
+        var response = new HealthResponse { Status = "Healthy" };
+        return await Send.OkAsync(response);
     }
 }
 ```
@@ -66,10 +85,10 @@ public class DeleteUserEndpoint : EndpointWithoutResponse<DeleteUserRequest>
         Delete("/users/{id}");
     }
 
-    public override async Task HandleAsync(DeleteUserRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(DeleteUserRequest request, CancellationToken ct)
     {
         // Delete user logic
-        // Returns 204 No Content by default
+        return await Send.NoContentAsync();
     }
 }
 ```

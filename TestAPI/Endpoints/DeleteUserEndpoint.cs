@@ -22,16 +22,16 @@ public class DeleteUserEndpoint : EndpointWithoutResponse<DeleteUserRequest>
             .Produces(204);
     }
 
-    public override async Task HandleAsync(DeleteUserRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(DeleteUserRequest request, CancellationToken ct)
     {
         // Simulate user deletion
         _logger.LogInformation("Deleting user with ID: {UserId}", request.Id);
         
         // In a real application, you would delete the user from the database here
         
-        await Send.NoContentAsync();
-        
+        return await Send.NoContentAsync();
     }
+    
 }
 
 public record DeleteUserRequest

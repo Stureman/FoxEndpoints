@@ -15,7 +15,6 @@ public abstract class EndpointBase
     protected EndpointBuilder Put(string route) => Verb(HttpMethods.Put, route);
     protected EndpointBuilder Delete(string route) => Verb(HttpMethods.Delete, route);
     
-   
 
 
     private EndpointBuilder Verb(string method, string route)
@@ -73,6 +72,12 @@ public sealed class EndpointBuilder
     public EndpointBuilder RequireAuthorization()
     {
         _ep.AddConfigurator(b => b.RequireAuthorization());
+        return this;
+    }
+
+    public EndpointBuilder AllowAnonymous()
+    {
+        _ep.AddConfigurator(b => b.AllowAnonymous());
         return this;
     }
 

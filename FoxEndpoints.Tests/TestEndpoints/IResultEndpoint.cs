@@ -15,15 +15,14 @@ public class IResultEndpoint : Endpoint<IResultRequest, IResult>
             .Produces(404);
     }
 
-    public override async Task HandleAsync(IResultRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(IResultRequest request, CancellationToken ct)
     {
         if (request.Id <= 0)
         {
-            await Send.NotFoundAsync("Invalid ID");
-            return;
+            return await Send.NotFoundAsync("Invalid ID");
         }
 
-        await Send.OkAsync(Results.Ok(new { Id = request.Id, Updated = true }));
+        return await Send.OkAsync(Results.Ok(new { Id = request.Id, Updated = true }));
     }
 }
 
