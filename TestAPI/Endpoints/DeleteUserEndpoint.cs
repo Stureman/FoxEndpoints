@@ -30,6 +30,7 @@ public class DeleteUserEndpoint : EndpointWithoutResponse<DeleteUserRequest>
         // In a real application, you would delete the user from the database here
         
         await Send.NoContentAsync();
+        
     }
 }
 
