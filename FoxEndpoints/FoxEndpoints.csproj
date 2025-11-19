@@ -1,10 +1,27 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <LangVersion>14</LangVersion>
+        <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        
+        <!-- NuGet Package Metadata -->
+        <PackageId>FoxEndpoints</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>Richard Truedsson</Authors>
+        <Company>FoxEndpoints</Company>
+        <Product>FoxEndpoints</Product>
+        <Description>A lightweight, minimal API endpoint framework for ASP.NET Core inspired by FastEndpoints. Supports .NET 9 and .NET 10 with natural IResult-based response handling and optional global authorization.</Description>
+        <PackageTags>aspnetcore;minimal-api;endpoints;web-api;fastendpoints;dotnet;csharp</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/Stureman/FoxEndpoints</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/Stureman/FoxEndpoints</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
     <ItemGroup>
@@ -13,6 +30,10 @@
 
     <ItemGroup>
       <Compile Remove="SendHelperTyped.cs" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <None Include="../README.md" Pack="true" PackagePath="/" />
     </ItemGroup>
 
 </Project>
