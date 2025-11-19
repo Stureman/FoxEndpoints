@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using Asp.Versioning;
+using Asp.Versioning.Builder;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +67,36 @@ public static class EndpointExtensions
                 .Where(t => !t.IsAbstract && IsEndpointType(t))
                 .ToList();
 
+            // -----------------------------------------------
+            // Collect all API versions from endpoint attributes
+            // -----------------------------------------------
+            var allVersions = new HashSet<ApiVersion>();
+            foreach (var type in endpointTypes)
+            {
+                var versionAttrs = type.GetCustomAttributes(true).OfType<ApiVersionAttribute>();
+                foreach (var versionAttr in versionAttrs)
+                {
+                    foreach (var version in versionAttr.Versions)
+                    {
+                        allVersions.Add(version);
+                    }
+                }
+            }
+
+            // -----------------------------------------------
+            // Create API version set if any versions were found
+            // -----------------------------------------------
+            ApiVersionSet? versionSet = null;
+            if (allVersions.Any())
+            {
+                var versionSetBuilder = _app.NewApiVersionSet();
+                foreach (var version in allVersions)
+                {
+                    versionSetBuilder.HasApiVersion(version);
+                }
+                versionSet = versionSetBuilder.ReportApiVersions().Build();
+            }
+
             foreach (var type in endpointTypes)
             {
                 // -----------------------------------------------
@@ -105,7 +137,29 @@ public static class EndpointExtensions
 
                 builder.WithName(type.Name);
 
-                var attrs = type.GetCustomAttributes(true).Cast<object>().ToArray();
+                // -----------------------------------------------
+                // Apply API versioning if version set exists
+                // -----------------------------------------------
+                if (versionSet != null)
+                {
+                    builder.WithApiVersionSet(versionSet);
+                    
+                    // Map to specific API versions based on [ApiVersion] attributes
+                    var versionAttrs = type.GetCustomAttributes(true).OfType<ApiVersionAttribute>();
+                    foreach (var versionAttr in versionAttrs)
+                    {
+                        foreach (var version in versionAttr.Versions)
+                        {
+                            builder.MapToApiVersion(version);
+                        }
+                    }
+                }
+
+                // -----------------------------------------------
+                // Apply all attributes from the endpoint class as metadata
+                // This enables support for [ApiVersion], [ApiExplorerSettings], and other attributes
+                // -----------------------------------------------
+                var attrs = type.GetCustomAttributes(true);
                 if (attrs.Length > 0)
                     builder.WithMetadata(attrs);
 

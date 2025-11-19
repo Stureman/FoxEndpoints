@@ -151,3 +151,35 @@ GET {{TestAPI_HostAddress}}/users/search?name=Jane
 Accept: application/json
 
 ###
+
+### Get Products V1 (Query string versioning)
+GET {{TestAPI_HostAddress}}/api/products?api-version=1.0
+Accept: application/json
+
+###
+
+### Get Products V2 (Query string versioning)
+GET {{TestAPI_HostAddress}}/api/products?api-version=2.0
+Accept: application/json
+
+###
+
+### Get Products V1 (Header versioning - also supported)
+GET {{TestAPI_HostAddress}}/api/products
+Accept: application/json
+X-Api-Version: 1.0
+
+###
+
+### Get Products V2 (Header versioning - also supported)
+GET {{TestAPI_HostAddress}}/api/products
+Accept: application/json
+X-Api-Version: 2.0
+
+###
+
+### Get Products - Default Version (Should use V1 as default)
+GET {{TestAPI_HostAddress}}/api/products
+Accept: application/json
+
+###

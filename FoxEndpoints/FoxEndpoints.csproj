@@ -8,11 +8,11 @@
         
         <!-- NuGet Package Metadata -->
         <PackageId>FoxEndpoints</PackageId>
-        <Version>1.0.0</Version>
+        <Version>1.2.0</Version>
         <Authors>Richard Truedsson</Authors>
         <Company>FoxEndpoints</Company>
         <Product>FoxEndpoints</Product>
-        <Description>A lightweight, minimal API endpoint framework for ASP.NET Core inspired by FastEndpoints. Supports .NET 9 and .NET 10 with natural IResult-based response handling and optional global authorization.</Description>
+        <Description>A lightweight, minimal API endpoint framework for ASP.NET Core inspired by FastEndpoints. Supports .NET 9 and .NET 10 with natural IResult-based response handling, optional global authorization, and full API versioning support with query strings and headers.</Description>
         <PackageTags>aspnetcore;minimal-api;endpoints;web-api;fastendpoints;dotnet;csharp</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/Stureman/FoxEndpoints</RepositoryUrl>
@@ -26,6 +26,10 @@
 
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Asp.Versioning.Http" Version="8.1.0" />
     </ItemGroup>
 
     <ItemGroup>
