@@ -1,0 +1,40 @@
+name: Publish to NuGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # Allows manual triggering from Actions tab
+
+permissions:
+  id-token: write  # Required for OIDC authentication with NuGet.org
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          9.0.x
+          10.0.x
+    
+    - name: Restore dependencies
+      run: dotnet restore FoxEndpoints/FoxEndpoints.csproj
+    
+    - name: Build
+      run: dotnet build FoxEndpoints/FoxEndpoints.csproj -c Release --no-restore
+    
+    - name: Run tests
+      run: dotnet test --no-build --verbosity normal -c Release
+    
+    - name: Pack
+      run: dotnet pack FoxEndpoints/FoxEndpoints.csproj -c Release --no-build --output ./artifacts
+    
+    - name: Publish to NuGet.org using Trusted Publishing
+      run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
