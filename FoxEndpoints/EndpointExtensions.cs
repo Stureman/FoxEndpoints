@@ -242,6 +242,38 @@ public static class EndpointExtensions
     public static object CreateEndpointInstance(Type endpointType, IServiceProvider services)
         => _endpointFactories[endpointType](services);
 
+    private static object ConvertValue(object value, Type targetType)
+    {
+        var stringValue = value.ToString();
+
+        // Handle Guid specially since Convert.ChangeType doesn't support it
+        if (targetType == typeof(Guid))
+        {
+            if (Guid.TryParse(stringValue, out var guid))
+                return guid;
+            throw new FormatException($"'{stringValue}' is not a valid Guid format");
+        }
+
+        // Handle DateOnly (available in .NET 6+)
+        if (targetType == typeof(DateOnly))
+        {
+            if (DateOnly.TryParse(stringValue, out var dateOnly))
+                return dateOnly;
+            throw new FormatException($"'{stringValue}' is not a valid DateOnly format");
+        }
+
+        // Handle TimeOnly (available in .NET 6+)
+        if (targetType == typeof(TimeOnly))
+        {
+            if (TimeOnly.TryParse(stringValue, out var timeOnly))
+                return timeOnly;
+            throw new FormatException($"'{stringValue}' is not a valid TimeOnly format");
+        }
+
+        // For all other types, use Convert.ChangeType
+        return Convert.ChangeType(stringValue, targetType);
+    }
+
     public static TRequest BindFromHttpContext<TRequest>(HttpContext context)
     {
         var requestType = typeof(TRequest);
@@ -306,11 +338,11 @@ public static class EndpointExtensions
                     
                     if (underlyingType != null)
                     {
-                        // Det är en nullable type (int?, bool?, etc.)
+                        // Det är en nullable type (int?, bool?, Guid?, DateOnly?, TimeOnly?, etc.)
                         var stringValue = valueToConvert.ToString();
                         if (!string.IsNullOrWhiteSpace(stringValue))
                         {
-                            var convertedValue = Convert.ChangeType(stringValue, underlyingType);
+                            var convertedValue = ConvertValue(stringValue, underlyingType);
                             property.SetValue(request, convertedValue);
                         }
                         // Om null eller empty, lämna som null (default for nullable)
@@ -318,7 +350,7 @@ public static class EndpointExtensions
                     else
                     {
                         // Vanlig typ
-                        var convertedValue = Convert.ChangeType(valueToConvert, targetType);
+                        var convertedValue = ConvertValue(valueToConvert, targetType);
                         property.SetValue(request, convertedValue);
                     }
                 }
