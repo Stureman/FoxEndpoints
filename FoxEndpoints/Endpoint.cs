@@ -9,14 +9,14 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 
     internal static Delegate BuildHandler(Type endpointType, string httpMethod)
     {
-        // For GET requests, bind from route/query by manually constructing the request object
-        // For POST/PUT/PATCH/DELETE with complex types, bind from body (and merge route params if present)
+        // For GET/DELETE requests, bind from route/query by manually constructing the request object
+        // For POST/PUT/PATCH with complex types, bind from body (and merge route params if present)
         var requestType = typeof(TRequest);
         var isSimpleType = requestType.IsPrimitive || requestType == typeof(string) || requestType == typeof(Guid) || requestType == typeof(DateTime);
         
-        if (httpMethod == HttpMethods.Get && !isSimpleType)
+        if ((httpMethod == HttpMethods.Get || httpMethod == HttpMethods.Delete) && !isSimpleType)
         {
-            // For GET with complex types, manually bind from HttpContext (route + query)
+            // For GET/DELETE with complex types, manually bind from HttpContext (route + query)
             return async (HttpContext ctx, CancellationToken ct) =>
             {
                 var ep = (Endpoint<TRequest, TResponse>)
