@@ -245,10 +245,6 @@ public static class EndpointExtensions
     private static object ConvertValue(object value, Type targetType)
     {
         var stringValue = value.ToString();
-        if (string.IsNullOrWhiteSpace(stringValue))
-        {
-            throw new ArgumentException("Value cannot be null or empty");
-        }
 
         // Handle Guid specially since Convert.ChangeType doesn't support it
         if (targetType == typeof(Guid))
