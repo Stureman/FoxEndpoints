@@ -10,7 +10,7 @@ public class GetLapsEndpoint : Endpoint<GetLapsRequest, GetLapsResponse>
 {
     public override void Configure()
     {
-        Get("/laps/moment/{MomentId?}/sub/{SubMomentId?}")
+        Get("/track/{trackId?}/car/{carId?}/laps")
             .WithName("GetLaps")
             .WithTags("Testing")
             .AllowAnonymous();
@@ -20,9 +20,9 @@ public class GetLapsEndpoint : Endpoint<GetLapsRequest, GetLapsResponse>
     {
         var response = new GetLapsResponse
         {
-            MomentId = request.MomentId,
-            SubMomentId = request.SubMomentId,
-            Message = $"MomentId: {request.MomentId?.ToString() ?? "null"}, SubMomentId: {request.SubMomentId?.ToString() ?? "null"}"
+            TrackId = request.TrackId,
+            CarId = request.CarId,
+            Message = $"TrackId: {request.TrackId?.ToString() ?? "null"}, CarId: {request.CarId?.ToString() ?? "null"} has driven many laps"
         };
 
         return await Send.OkAsync(response);
@@ -31,14 +31,14 @@ public class GetLapsEndpoint : Endpoint<GetLapsRequest, GetLapsResponse>
 
 public record GetLapsRequest
 {
-    public Guid? MomentId { get; init; }
+    public Guid? TrackId { get; init; }
     
-    public Guid? SubMomentId { get; init; }
+    public Guid? CarId { get; init; }
 }
 
 public record GetLapsResponse
 {
-    public Guid? MomentId { get; init; }
-    public Guid? SubMomentId { get; init; }
+    public Guid? TrackId { get; init; }
+    public Guid? CarId { get; init; }
     public string Message { get; init; } = string.Empty;
 }

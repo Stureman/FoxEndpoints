@@ -183,3 +183,51 @@ GET {{TestAPI_HostAddress}}/api/products
 Accept: application/json
 
 ###
+
+### Get Laps - Test Nullable Guid Binding (With Both GUIDs)
+GET {{TestAPI_HostAddress}}/track/12345678-1234-1234-1234-123456789abc/car/87654321-4321-4321-4321-cba987654321/laps
+Accept: application/json
+
+###
+
+### Get Laps - Test Nullable Guid Binding (With MomentId Only)
+GET {{TestAPI_HostAddress}}/track/12345678-1234-1234-1234-123456789abc/car//laps
+Accept: application/json
+
+###
+
+### Test Query Binding - Comprehensive (All Parameters)
+GET {{TestAPI_HostAddress}}/api/test-binding/42?Name=John%20Doe&Age=30&IsActive=true&Score=95.5&CreatedDate=2025-01-15&UniqueId=a1b2c3d4-5678-90ab-cdef-1234567890ab&Tags=tag1,tag2,tag3
+Accept: application/json
+
+###
+
+### Test Query Binding - Minimal (Route Parameter Only)
+GET {{TestAPI_HostAddress}}/api/test-binding/1
+Accept: application/json
+
+###
+
+### Test Query Binding - Partial Parameters
+GET {{TestAPI_HostAddress}}/api/test-binding/99?Name=Jane&IsActive=false&Score=88.7
+Accept: application/json
+
+###
+
+### Delete Product - With Route Parameter and Query String Reason
+DELETE {{TestAPI_HostAddress}}/api/products/1?Reason=Discontinued
+Accept: application/json
+
+###
+
+### Delete Product - Without Reason
+DELETE {{TestAPI_HostAddress}}/api/products/42
+Accept: application/json
+
+###
+
+### Delete Product - With Detailed Reason
+DELETE {{TestAPI_HostAddress}}/api/products/99?Reason=Recalled%20due%20to%20quality%20issues
+Accept: application/json
+
+###

@@ -10,6 +10,7 @@ namespace FoxEndpoints;
 
 public static class EndpointExtensions
 {
+    // Cache for endpoint factories (endpoint instances)
     private static readonly Dictionary<Type, Func<IServiceProvider, object>> _endpointFactories = new();
 
     public static FoxEndpointsBuilder UseFoxEndpoints(this WebApplication app)
@@ -182,8 +183,8 @@ public static class EndpointExtensions
     // Factory builder — "Hämtar" den konstruktorn med mest parametrar
     // Bygger en expression med param ServiceProvider sp som skickas i runtime
     // För varje parameter i konstruktorn skapar vi ett expression som hämtar eller skapar servicen
-    // Och sedan "castar" den till till den exakta typen av parameter.
-    // Slutligen retunerar vi en kompilerad "delegate" som kommer cacheas i _endpointFactories
+    // Och sedan "castar" den till den exakta typen av parameter.
+    // Slutligen retunerar vi en kompilerad "delegate" för given endpoint som kommer cacheas i _endpointFactories
     // ---------------------------------------
     private static Func<IServiceProvider, object> CreateFactory(Type endpointType)
     {
