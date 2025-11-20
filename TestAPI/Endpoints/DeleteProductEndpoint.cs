@@ -17,10 +17,15 @@ public class DeleteProductEndpoint : Endpoint<DeleteProductRequest, DeleteProduc
 
     public override async Task<IResult> HandleAsync(DeleteProductRequest request, CancellationToken ct)
     {
+        var message = string.IsNullOrEmpty(request.Reason)
+            ? $"Product {request.Id} deleted successfully"
+            : $"Product {request.Id} deleted successfully. Reason: {request.Reason}";
+
         var response = new DeleteProductResponse
         {
             Id = request.Id,
-            Message = $"Product {request.Id} deleted successfully",
+            Message = message,
+            Reason = request.Reason,
             DeletedAt = DateTime.UtcNow
         };
 
@@ -38,5 +43,6 @@ public record DeleteProductResponse
 {
     public int Id { get; init; }
     public string Message { get; init; } = string.Empty;
+    public string? Reason { get; init; }
     public DateTime DeletedAt { get; init; }
 }
