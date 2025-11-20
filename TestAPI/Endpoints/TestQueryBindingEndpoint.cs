@@ -26,6 +26,7 @@ public class TestQueryBindingEndpoint : Endpoint<QueryBindingRequest, QueryBindi
             IsActive = request.IsActive,
             Score = request.Score,
             CreatedDate = request.CreatedDate,
+            UniqueId = request.UniqueId,
             Tags = request.Tags,
             Message = "All parameters bound successfully from route and query string!"
         };
@@ -57,6 +58,9 @@ public record QueryBindingRequest
     // From query string: ?CreatedDate=2025-01-01
     public DateTime? CreatedDate { get; init; }
     
+    // From query string: ?UniqueId=12345678-1234-1234-1234-123456789abc
+    public Guid? UniqueId { get; init; }
+    
     // From query string: ?Tags=tag1,tag2,tag3 (comma-separated string, not array binding)
     public string? Tags { get; init; }
 }
@@ -69,6 +73,7 @@ public record QueryBindingResponse
     public bool? IsActive { get; init; }
     public decimal? Score { get; init; }
     public DateTime? CreatedDate { get; init; }
+    public Guid? UniqueId { get; init; }
     public string? Tags { get; init; }
     public string Message { get; init; } = string.Empty;
 }
