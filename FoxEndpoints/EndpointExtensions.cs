@@ -336,7 +336,7 @@ public static class EndpointExtensions
                     
                     if (underlyingType != null)
                     {
-                        // Det är en nullable type (int?, bool?, Guid?, etc.)
+                        // Det är en nullable type (int?, bool?, Guid?, DateOnly?, TimeOnly?, etc.)
                         var stringValue = valueToConvert.ToString();
                         if (!string.IsNullOrWhiteSpace(stringValue))
                         {
