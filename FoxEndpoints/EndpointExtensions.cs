@@ -167,6 +167,15 @@ public static class EndpointExtensions
                 designInstance.ApplyConfigurators(builder);
                 
                 // -----------------------------------------------
+                // Automatically configure form data acceptance if needed
+                // -----------------------------------------------
+                if (RequiresFormDataConfiguration(type))
+                {
+                    builder.Accepts<object>("multipart/form-data");
+                    builder.DisableAntiforgery();
+                }
+                
+                // -----------------------------------------------
                 // 5) Apply global authorization if enabled
                 // -----------------------------------------------
                 if (_requireAuthorization)
@@ -439,6 +448,54 @@ public static class EndpointExtensions
 
             toTest = toTest.BaseType!;
         }
+        return false;
+    }
+
+    /// <summary>
+    /// Determines if an endpoint type requires form data configuration.
+    /// Checks if the request type contains IFormFile properties or [FromForm] attributes.
+    /// </summary>
+    private static bool RequiresFormDataConfiguration(Type endpointType)
+    {
+        // Get the request type from the endpoint
+        var baseType = GetEndpointBaseType(endpointType);
+        if (baseType == null) return false;
+
+        Type? requestType = null;
+        
+        // Extract TRequest from Endpoint<TRequest, TResponse>
+        if (baseType.IsGenericType)
+        {
+            var genericArgs = baseType.GetGenericArguments();
+            if (genericArgs.Length > 0)
+            {
+                requestType = genericArgs[0];
+            }
+        }
+
+        if (requestType == null) return false;
+
+        var properties = requestType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        
+        foreach (var property in properties)
+        {
+            // Check if property is IFormFile or IFormFileCollection
+            if (property.PropertyType == typeof(IFormFile) || 
+                property.PropertyType == typeof(IFormFileCollection) ||
+                (property.PropertyType.IsGenericType && 
+                 property.PropertyType.GetGenericTypeDefinition() == typeof(IEnumerable<>) &&
+                 property.PropertyType.GetGenericArguments()[0] == typeof(IFormFile)))
+            {
+                return true;
+            }
+            
+            // Check if property has [FromForm] attribute
+            if (property.GetCustomAttribute<Microsoft.AspNetCore.Mvc.FromFormAttribute>() != null)
+            {
+                return true;
+            }
+        }
+        
         return false;
     }
 }

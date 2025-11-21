@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Reflection;
 
 namespace FoxEndpoints;
 
@@ -13,6 +14,7 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
         // For POST/PUT/PATCH with complex types, use FromBody and merge route params
         var requestType = typeof(TRequest);
         var isSimpleType = requestType.IsPrimitive || requestType == typeof(string) || requestType == typeof(Guid) || requestType == typeof(DateTime);
+        var requiresFormData = RequiresFormDataBinding(requestType);
         
         if (httpMethod == HttpMethods.Delete && !isSimpleType)
         {
@@ -38,6 +40,30 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
         }
         else if (httpMethod == HttpMethods.Post || httpMethod == HttpMethods.Put || httpMethod == HttpMethods.Patch)
         {
+            // For form data (file uploads), use ASP.NET's default model binding instead of [FromBody]
+            if (requiresFormData)
+            {
+                return async (TRequest req, HttpContext ctx, CancellationToken ct) =>
+                {
+                    var ep = (EndpointWithoutResponse<TRequest>)
+                        EndpointExtensions.CreateEndpointInstance(endpointType, ctx.RequestServices);
+                    
+                    ep.HttpContext = ctx;
+                    EndpointContext<TRequest, object>.Current = ep;
+
+                    try
+                    {
+                        // ASP.NET will automatically bind from form data (including files)
+                        // and route parameters without [FromBody] attribute
+                        return await ep.HandleAsync(req, ct);
+                    }
+                    finally
+                    {
+                        EndpointContext<TRequest, object>.Current = null;
+                    }
+                };
+            }
+            
             // Bind from body for POST/PUT/PATCH, then merge route parameters
             return async ([FromBody] TRequest req, HttpContext ctx, CancellationToken ct) =>
             {
@@ -193,5 +219,35 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
             };
             return Task.FromResult<IResult>(Results.Conflict(problemDetails));
         }
+    }
+
+    /// <summary>
+    /// Determines if a request type requires form data binding (multipart/form-data).
+    /// Returns true if the type contains IFormFile properties or properties with [FromForm] attribute.
+    /// </summary>
+    private static bool RequiresFormDataBinding(Type requestType)
+    {
+        var properties = requestType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        
+        foreach (var property in properties)
+        {
+            // Check if property is IFormFile or IFormFileCollection
+            if (property.PropertyType == typeof(IFormFile) || 
+                property.PropertyType == typeof(IFormFileCollection) ||
+                (property.PropertyType.IsGenericType && 
+                 property.PropertyType.GetGenericTypeDefinition() == typeof(IEnumerable<>) &&
+                 property.PropertyType.GetGenericArguments()[0] == typeof(IFormFile)))
+            {
+                return true;
+            }
+            
+            // Check if property has [FromForm] attribute
+            if (property.GetCustomAttribute<FromFormAttribute>() != null)
+            {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }
