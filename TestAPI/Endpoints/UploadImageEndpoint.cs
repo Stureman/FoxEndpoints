@@ -19,6 +19,7 @@ public class UploadImageEndpoint : EndpointWithoutResponse<UploadImageRequest>
     public override void Configure()
     {
         Post("/images/upload")
+            .AllowAnonymous()
             .WithName("UploadImage")
             .WithTags("Images")
             .Produces(StatusCodes.Status204NoContent)

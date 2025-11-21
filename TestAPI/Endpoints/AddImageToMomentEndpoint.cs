@@ -19,6 +19,7 @@ public class AddImageToMomentEndpoint : EndpointWithoutResponse<AddImageRequest>
     public override void Configure()
     {
         Post("/image/moment/{MomentId}")
+            .AllowAnonymous()
             .WithName("AddImage")
             .WithTags("Images")
             .Produces(StatusCodes.Status204NoContent)

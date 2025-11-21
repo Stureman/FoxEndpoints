@@ -40,10 +40,10 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
         }
         else if (httpMethod == HttpMethods.Post || httpMethod == HttpMethods.Put || httpMethod == HttpMethods.Patch)
         {
-            // For form data (file uploads), use ASP.NET's default model binding instead of [FromBody]
+            // For form data (file uploads), manually bind from HttpContext to avoid JSON inference
             if (requiresFormData)
             {
-                return async (TRequest req, HttpContext ctx, CancellationToken ct) =>
+                return async (HttpContext ctx, CancellationToken ct) =>
                 {
                     var ep = (EndpointWithoutResponse<TRequest>)
                         EndpointExtensions.CreateEndpointInstance(endpointType, ctx.RequestServices);
@@ -53,9 +53,9 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
 
                     try
                     {
-                        // ASP.NET will automatically bind from form data (including files)
-                        // and route parameters without [FromBody] attribute
-                        return await ep.HandleAsync(req, ct);
+                        // Manually bind from form data and route parameters
+                        var request = await EndpointExtensions.BindFromFormAsync<TRequest>(ctx);
+                        return await ep.HandleAsync(request, ct);
                     }
                     finally
                     {

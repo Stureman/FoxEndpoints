@@ -20,6 +20,7 @@ public class UploadMultipleFilesEndpoint : EndpointWithoutResponse<UploadMultipl
     {
         Post("/files/upload-multiple")
             .AllowFileUploads()  // Explicit configuration using the fluent API
+            .AllowAnonymous()
             .WithName("UploadMultipleFiles")
             .WithTags("Files")
             .Produces(StatusCodes.Status204NoContent)
