@@ -233,12 +233,28 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
         {
             // Check if property is IFormFile or IFormFileCollection
             if (property.PropertyType == typeof(IFormFile) || 
-                property.PropertyType == typeof(IFormFileCollection) ||
-                (property.PropertyType.IsGenericType && 
-                 property.PropertyType.GetGenericTypeDefinition() == typeof(IEnumerable<>) &&
-                 property.PropertyType.GetGenericArguments()[0] == typeof(IFormFile)))
+                property.PropertyType == typeof(IFormFileCollection))
             {
                 return true;
+            }
+            
+            // Check if property is a collection of IFormFile (List<IFormFile>, IEnumerable<IFormFile>, etc.)
+            if (property.PropertyType.IsGenericType)
+            {
+                var genericTypeDef = property.PropertyType.GetGenericTypeDefinition();
+                var genericArgs = property.PropertyType.GetGenericArguments();
+                
+                if (genericArgs.Length > 0 && genericArgs[0] == typeof(IFormFile))
+                {
+                    // Check for common collection types
+                    if (genericTypeDef == typeof(List<>) ||
+                        genericTypeDef == typeof(IEnumerable<>) ||
+                        genericTypeDef == typeof(IList<>) ||
+                        genericTypeDef == typeof(ICollection<>))
+                    {
+                        return true;
+                    }
+                }
             }
             
             // Check if property has [FromForm] attribute
