@@ -1,5 +1,10 @@
 @TestAPI_HostAddress = http://localhost:5255
 
+# Note: For file upload requests in this .http file, you may need to:
+# 1. Create sample files (sample-image.jpg, moment-photo.jpg, document*.pdf) in the TestAPI directory
+# 2. Or use a REST client like VS Code REST Client, Postman, or curl for testing
+# 3. The file upload endpoints require multipart/form-data content type
+
 ### Get Weather Forecast (Original Endpoint)
 GET {{TestAPI_HostAddress}}/weatherforecast/
 Accept: application/json
@@ -229,5 +234,67 @@ Accept: application/json
 ### Delete Product - With Detailed Reason
 DELETE {{TestAPI_HostAddress}}/api/products/99?Reason=Recalled%20due%20to%20quality%20issues
 Accept: application/json
+
+###
+
+### ============================================
+### FILE UPLOAD ENDPOINTS (Multipart Form Data)
+### ============================================
+
+### Upload Single Image - Simple File Upload
+POST {{TestAPI_HostAddress}}/images/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="sample-image.jpg"
+Content-Type: image/jpeg
+
+< ./sample-image.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="description"
+
+Test image uploaded via HTTP file
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### Upload Image to Moment - File Upload with Route Parameter
+# This demonstrates the exact use case from the issue
+POST {{TestAPI_HostAddress}}/image/moment/550e8400-e29b-41d4-a716-446655440000
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="moment-photo.jpg"
+Content-Type: image/jpeg
+
+< ./moment-photo.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### Upload Multiple Files
+POST {{TestAPI_HostAddress}}/files/upload-multiple
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="Files"; filename="document1.pdf"
+Content-Type: application/pdf
+
+< ./document1.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="Files"; filename="document2.pdf"
+Content-Type: application/pdf
+
+< ./document2.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="Files"; filename="document3.pdf"
+Content-Type: application/pdf
+
+< ./document3.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="category"
+
+Documents
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
 
 ###

@@ -9,6 +9,7 @@ A lightweight, minimal API endpoint framework for ASP.NET Core inspired by FastE
 - 💉 Built-in dependency injection support
 - 🔒 Optional global authorization
 - 📌 Type-safe routing and parameter binding
+- 📁 **Automatic multipart/form-data and file upload support**
 - 🔢 **Full API versioning support** (query string and headers)
 - 🚀 Works with .NET 9.0 and .NET 10.0
 - 📦 Zero configuration required
@@ -375,6 +376,115 @@ Request data is merged from:
 1. Route parameters (`{id}`, `{name}`, etc.)
 2. Query string parameters
 3. JSON request body
+
+### File Uploads (Multipart Form Data)
+
+FoxEndpoints automatically supports file uploads with multipart/form-data requests. Simply include `IFormFile` properties in your request model:
+
+```csharp
+public class UploadImageEndpoint : EndpointWithoutResponse<UploadImageRequest>
+{
+    public override void Configure()
+    {
+        Post("/images/upload")
+            .WithName("UploadImage")
+            .WithTags("Images")
+            .Produces(StatusCodes.Status204NoContent);
+    }
+
+    public override async Task<IResult> HandleAsync(UploadImageRequest request, CancellationToken ct)
+    {
+        if (request.File == null || request.File.Length == 0)
+        {
+            return await Send.BadRequestAsync("File is required");
+        }
+
+        // Process the uploaded file
+        using var stream = request.File.OpenReadStream();
+        // ... save file, process, etc.
+
+        return await Send.NoContentAsync();
+    }
+}
+
+public record UploadImageRequest
+{
+    [FromForm]
+    public IFormFile? File { get; init; }
+    
+    [FromForm]
+    public string? Description { get; init; }
+}
+```
+
+#### File Upload with Route Parameters
+
+Combine file uploads with route parameters seamlessly:
+
+```csharp
+public class AddImageToMomentEndpoint : EndpointWithoutResponse<AddImageRequest>
+{
+    public override void Configure()
+    {
+        Post("/image/moment/{MomentId}")
+            .WithName("AddImage")
+            .WithTags("Images")
+            .Produces(StatusCodes.Status204NoContent);
+    }
+
+    public override async Task<IResult> HandleAsync(AddImageRequest request, CancellationToken ct)
+    {
+        // Both MomentId from route and File from form are automatically bound
+        // Process file for the specific moment...
+        return await Send.NoContentAsync();
+    }
+}
+
+public record AddImageRequest
+{
+    [FromRoute]
+    public Guid MomentId { get; init; }
+
+    [FromForm]
+    public IFormFile? File { get; init; }
+}
+```
+
+#### Multiple File Uploads
+
+Upload multiple files using `List<IFormFile>`:
+
+```csharp
+public record UploadMultipleFilesRequest
+{
+    [FromForm]
+    public List<IFormFile>? Files { get; init; }
+    
+    [FromForm]
+    public string? Category { get; init; }
+}
+```
+
+#### Explicit Configuration
+
+For additional control, use the fluent API:
+
+```csharp
+public override void Configure()
+{
+    Post("/files/upload")
+        .AllowFileUploads()  // Adds multipart/form-data support + disables antiforgery
+        .WithName("UploadFiles")
+        .WithTags("Files");
+}
+```
+
+Available methods:
+- `.AcceptsFormData()` - Accepts multipart/form-data content type
+- `.DisableAntiforgery()` - Disables antiforgery validation
+- `.AllowFileUploads()` - Convenience method combining both above
+
+**Note:** FoxEndpoints automatically detects `IFormFile` properties and configures endpoints appropriately, so explicit configuration is usually unnecessary.
 
 ## Why FoxEndpoints?
 
