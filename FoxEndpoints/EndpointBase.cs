@@ -86,4 +86,26 @@ public sealed class EndpointBuilder
         _ep.AddConfigurator(b => b.RequireAuthorization(policies));
         return this;
     }
+
+    public EndpointBuilder AcceptsFormData()
+    {
+        _ep.AddConfigurator(b => b.Accepts<object>("multipart/form-data"));
+        return this;
+    }
+
+    public EndpointBuilder DisableAntiforgery()
+    {
+        _ep.AddConfigurator(b => b.DisableAntiforgery());
+        return this;
+    }
+
+    public EndpointBuilder AllowFileUploads()
+    {
+        _ep.AddConfigurator(b =>
+        {
+            b.Accepts<object>("multipart/form-data");
+            b.DisableAntiforgery();
+        });
+        return this;
+    }
 }

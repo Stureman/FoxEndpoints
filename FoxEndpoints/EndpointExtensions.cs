@@ -167,6 +167,15 @@ public static class EndpointExtensions
                 designInstance.ApplyConfigurators(builder);
                 
                 // -----------------------------------------------
+                // Automatically configure form data acceptance if needed
+                // -----------------------------------------------
+                if (RequiresFormDataConfiguration(type))
+                {
+                    builder.Accepts<object>("multipart/form-data");
+                    builder.DisableAntiforgery();
+                }
+                
+                // -----------------------------------------------
                 // 5) Apply global authorization if enabled
                 // -----------------------------------------------
                 if (_requireAuthorization)
@@ -440,5 +449,221 @@ public static class EndpointExtensions
             toTest = toTest.BaseType!;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Determines if an endpoint type requires form data configuration.
+    /// Checks if the request type contains IFormFile properties or [FromForm] attributes.
+    /// </summary>
+    private static bool RequiresFormDataConfiguration(Type endpointType)
+    {
+        // Get the request type from the endpoint
+        var baseType = GetEndpointBaseType(endpointType);
+        if (baseType == null) return false;
+
+        Type? requestType = null;
+        
+        // Extract TRequest from Endpoint<TRequest, TResponse>
+        if (baseType.IsGenericType)
+        {
+            var genericArgs = baseType.GetGenericArguments();
+            if (genericArgs.Length > 0)
+            {
+                requestType = genericArgs[0];
+            }
+        }
+
+        if (requestType == null) return false;
+
+        var properties = requestType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        
+        foreach (var property in properties)
+        {
+            // Check if property is IFormFile or IFormFileCollection
+            if (property.PropertyType == typeof(IFormFile) || 
+                property.PropertyType == typeof(IFormFileCollection))
+            {
+                return true;
+            }
+            
+            // Check if property is a collection of IFormFile (List<IFormFile>, IEnumerable<IFormFile>, etc.)
+            if (property.PropertyType.IsGenericType)
+            {
+                var genericTypeDef = property.PropertyType.GetGenericTypeDefinition();
+                var genericArgs = property.PropertyType.GetGenericArguments();
+                
+                if (genericArgs.Length > 0 && genericArgs[0] == typeof(IFormFile))
+                {
+                    // Check for common collection types
+                    if (genericTypeDef == typeof(List<>) ||
+                        genericTypeDef == typeof(IEnumerable<>) ||
+                        genericTypeDef == typeof(IList<>) ||
+                        genericTypeDef == typeof(ICollection<>))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            // Check if property has [FromForm] attribute
+            if (property.GetCustomAttribute<Microsoft.AspNetCore.Mvc.FromFormAttribute>() != null)
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    public static async Task<TRequest> BindFromFormAsync<TRequest>(HttpContext context)
+    {
+        var requestType = typeof(TRequest);
+        
+        // Get all properties from request type
+        var properties = requestType.GetProperties();
+        
+        // Create an instance with parameterless constructor or default
+        var request = Activator.CreateInstance(requestType);
+        if (request == null)
+        {
+            throw new InvalidOperationException($"Cannot create instance of {requestType.Name}");
+        }
+
+        // Check if request has a form
+        if (context.Request.HasFormContentType && context.Request.Form != null)
+        {
+            var form = await context.Request.ReadFormAsync();
+            
+            // Bind each property from form data, route values, or query string
+            foreach (var property in properties)
+            {
+                if (!property.CanWrite) continue;
+                
+                var propertyName = property.Name;
+                object? valueToSet = null;
+                bool hasValue = false;
+                
+                // Check for IFormFile or IFormFileCollection
+                if (property.PropertyType == typeof(IFormFile))
+                {
+                    var file = form.Files.GetFile(propertyName) 
+                               ?? form.Files.FirstOrDefault(f => string.Equals(f.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+                    if (file != null)
+                    {
+                        valueToSet = file;
+                        hasValue = true;
+                    }
+                }
+                else if (property.PropertyType == typeof(IFormFileCollection))
+                {
+                    if (form.Files.Count > 0)
+                    {
+                        valueToSet = form.Files;
+                        hasValue = true;
+                    }
+                }
+                else if (property.PropertyType.IsGenericType && 
+                         property.PropertyType.GetGenericTypeDefinition() == typeof(List<>) &&
+                         property.PropertyType.GetGenericArguments()[0] == typeof(IFormFile))
+                {
+                    // Handle List<IFormFile>
+                    var filesForProperty = form.Files
+                        .Where(f => string.Equals(f.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    if (filesForProperty.Count > 0)
+                    {
+                        valueToSet = filesForProperty;
+                        hasValue = true;
+                    }
+                }
+                else
+                {
+                    // Try to get value from route first
+                    if (context.Request.RouteValues.TryGetValue(propertyName, out var routeValue))
+                    {
+                        valueToSet = routeValue;
+                        hasValue = true;
+                    }
+                    else
+                    {
+                        // Try case-insensitive route match
+                        var routeKey = context.Request.RouteValues.Keys
+                            .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (routeKey != null)
+                        {
+                            valueToSet = context.Request.RouteValues[routeKey];
+                            hasValue = true;
+                        }
+                        else
+                        {
+                            // Try form fields
+                            var formKey = form.Keys
+                                .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
+                            
+                            if (formKey != null)
+                            {
+                                valueToSet = form[formKey].ToString();
+                                hasValue = true;
+                            }
+                            else
+                            {
+                                // Try query string
+                                var queryKey = context.Request.Query.Keys
+                                    .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
+                                
+                                if (queryKey != null)
+                                {
+                                    valueToSet = context.Request.Query[queryKey].ToString();
+                                    hasValue = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Convert the value if needed
+                    if (hasValue && valueToSet != null && property.PropertyType != typeof(IFormFile))
+                    {
+                        try
+                        {
+                            var targetType = property.PropertyType;
+                            var underlyingType = Nullable.GetUnderlyingType(targetType);
+                            
+                            if (underlyingType != null)
+                            {
+                                // Nullable type
+                                var stringValue = valueToSet.ToString();
+                                if (!string.IsNullOrWhiteSpace(stringValue))
+                                {
+                                    valueToSet = ConvertValue(stringValue, underlyingType);
+                                }
+                                else
+                                {
+                                    valueToSet = null;
+                                }
+                            }
+                            else if (targetType != typeof(string))
+                            {
+                                // Non-string type - convert
+                                valueToSet = ConvertValue(valueToSet, targetType);
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            // Skip properties that can't be converted
+                            hasValue = false;
+                        }
+                    }
+                }
+                
+                if (hasValue && valueToSet != null)
+                {
+                    property.SetValue(request, valueToSet);
+                }
+            }
+        }
+        
+        return (TRequest)request;
     }
 }

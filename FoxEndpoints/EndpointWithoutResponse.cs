@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Reflection;
 
 namespace FoxEndpoints;
 
@@ -13,6 +14,7 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
         // For POST/PUT/PATCH with complex types, use FromBody and merge route params
         var requestType = typeof(TRequest);
         var isSimpleType = requestType.IsPrimitive || requestType == typeof(string) || requestType == typeof(Guid) || requestType == typeof(DateTime);
+        var requiresFormData = RequiresFormDataBinding(requestType);
         
         if (httpMethod == HttpMethods.Delete && !isSimpleType)
         {
@@ -38,6 +40,30 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
         }
         else if (httpMethod == HttpMethods.Post || httpMethod == HttpMethods.Put || httpMethod == HttpMethods.Patch)
         {
+            // For form data (file uploads), manually bind from HttpContext to avoid JSON inference
+            if (requiresFormData)
+            {
+                return async (HttpContext ctx, CancellationToken ct) =>
+                {
+                    var ep = (EndpointWithoutResponse<TRequest>)
+                        EndpointExtensions.CreateEndpointInstance(endpointType, ctx.RequestServices);
+                    
+                    ep.HttpContext = ctx;
+                    EndpointContext<TRequest, object>.Current = ep;
+
+                    try
+                    {
+                        // Manually bind from form data and route parameters
+                        var request = await EndpointExtensions.BindFromFormAsync<TRequest>(ctx);
+                        return await ep.HandleAsync(request, ct);
+                    }
+                    finally
+                    {
+                        EndpointContext<TRequest, object>.Current = null;
+                    }
+                };
+            }
+            
             // Bind from body for POST/PUT/PATCH, then merge route parameters
             return async ([FromBody] TRequest req, HttpContext ctx, CancellationToken ct) =>
             {
@@ -193,5 +219,51 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
             };
             return Task.FromResult<IResult>(Results.Conflict(problemDetails));
         }
+    }
+
+    /// <summary>
+    /// Determines if a request type requires form data binding (multipart/form-data).
+    /// Returns true if the type contains IFormFile properties or properties with [FromForm] attribute.
+    /// </summary>
+    private static bool RequiresFormDataBinding(Type requestType)
+    {
+        var properties = requestType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        
+        foreach (var property in properties)
+        {
+            // Check if property is IFormFile or IFormFileCollection
+            if (property.PropertyType == typeof(IFormFile) || 
+                property.PropertyType == typeof(IFormFileCollection))
+            {
+                return true;
+            }
+            
+            // Check if property is a collection of IFormFile (List<IFormFile>, IEnumerable<IFormFile>, etc.)
+            if (property.PropertyType.IsGenericType)
+            {
+                var genericTypeDef = property.PropertyType.GetGenericTypeDefinition();
+                var genericArgs = property.PropertyType.GetGenericArguments();
+                
+                if (genericArgs.Length > 0 && genericArgs[0] == typeof(IFormFile))
+                {
+                    // Check for common collection types
+                    if (genericTypeDef == typeof(List<>) ||
+                        genericTypeDef == typeof(IEnumerable<>) ||
+                        genericTypeDef == typeof(IList<>) ||
+                        genericTypeDef == typeof(ICollection<>))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            // Check if property has [FromForm] attribute
+            if (property.GetCustomAttribute<FromFormAttribute>() != null)
+            {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }

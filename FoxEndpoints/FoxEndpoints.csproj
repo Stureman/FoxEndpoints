@@ -8,12 +8,12 @@
         
         <!-- NuGet Package Metadata -->
         <PackageId>FoxEndpoints</PackageId>
-        <Version>1.2.1</Version>
+        <Version>1.2.2</Version>
         <Authors>Richard Truedsson</Authors>
         <Company>FoxEndpoints</Company>
         <Product>FoxEndpoints</Product>
-        <Description>A lightweight, minimal API endpoint framework for ASP.NET Core inspired by FastEndpoints. Supports .NET 9 and .NET 10 with natural IResult-based response handling, optional global authorization, and full API versioning support with query strings and headers.</Description>
-        <PackageTags>aspnetcore;minimal-api;endpoints;web-api;fastendpoints;dotnet;csharp</PackageTags>
+        <Description>A lightweight, minimal API endpoint framework for ASP.NET Core inspired by FastEndpoints. Supports .NET 9 and .NET 10 with natural IResult-based response handling, automatic multipart/form-data and file upload support, optional global authorization, and full API versioning support with query strings and headers.</Description>
+        <PackageTags>aspnetcore;minimal-api;endpoints;web-api;fastendpoints;dotnet;csharp;file-upload;multipart-form-data</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/Stureman/FoxEndpoints</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
