@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxEndpoints", "FoxEndpoint
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestAPI", "TestAPI\TestAPI.csproj", "{6F9D4020-DA65-439D-8338-0789CE2E897B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxEndpoints.Benchmarks", "FoxEndpoints.Benchmarks\FoxEndpoints.Benchmarks.csproj", "{1A9B9108-D1C8-4C5F-A050-7D79630D3910}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,6 +40,18 @@ Global
 		{6F9D4020-DA65-439D-8338-0789CE2E897B}.Release|x64.Build.0 = Release|Any CPU
 		{6F9D4020-DA65-439D-8338-0789CE2E897B}.Release|x86.ActiveCfg = Release|Any CPU
 		{6F9D4020-DA65-439D-8338-0789CE2E897B}.Release|x86.Build.0 = Release|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Debug|x64.Build.0 = Debug|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Debug|x86.Build.0 = Debug|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Release|x64.ActiveCfg = Release|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Release|x64.Build.0 = Release|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Release|x86.ActiveCfg = Release|Any CPU
+		{1A9B9108-D1C8-4C5F-A050-7D79630D3910}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

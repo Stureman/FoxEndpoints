@@ -496,6 +496,34 @@ Available methods:
 - **Familiar**: Similar to FastEndpoints but lighter weight
 - **Modern**: Uses latest .NET features and minimal APIs
 
+## Benchmarks
+
+Performance benchmarks comparing FoxEndpoints to traditional MVC controllers are available in the `FoxEndpoints.Benchmarks` project.
+
+To run the benchmarks:
+
+```bash
+cd FoxEndpoints.Benchmarks
+./run-benchmarks.sh
+```
+
+Or run specific benchmarks:
+
+```bash
+./run-benchmarks.sh SimpleGetBenchmark
+./run-benchmarks.sh RouteParameterBenchmark
+./run-benchmarks.sh JsonPostBenchmark
+./run-benchmarks.sh MixedOperationsBenchmark
+```
+
+The benchmarks measure:
+- **Routing overhead** - Simple GET requests
+- **Parameter binding** - Route parameter extraction
+- **JSON serialization** - POST request handling
+- **Mixed operations** - Realistic API workflows
+
+Results are saved to `BenchmarkDotNet.Artifacts/results/` with detailed metrics including execution time, memory allocation, and performance rankings.
+
 ## License
 
 MIT
