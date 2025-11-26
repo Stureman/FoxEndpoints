@@ -112,6 +112,12 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
     /// </summary>
     protected static class Send
     {
+        // Cache common responses to avoid repeated allocations
+        private static readonly Task<IResult> CachedNoContent = Task.FromResult<IResult>(Results.NoContent());
+        private static readonly Task<IResult> CachedOkEmpty = Task.FromResult<IResult>(Results.Ok());
+        private static readonly Task<IResult> CachedNotFoundEmpty = Task.FromResult<IResult>(Results.NotFound());
+        private static readonly Task<IResult> CachedUnauthorized = Task.FromResult<IResult>(Results.Unauthorized());
+        
         private static Endpoint<TRequest, TResponse> CurrentEndpoint
         {
             get => (EndpointContext<TRequest, TResponse>.Current as Endpoint<TRequest, TResponse>)
@@ -128,7 +134,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
         /// Returns a 200 OK response with an empty body.
         /// </summary>
         public static Task<IResult> OkAsync()
-            => Task.FromResult<IResult>(Results.Ok());
+            => CachedOkEmpty;
 
         /// <summary>
         /// Returns a 201 Created response with the specified response object.
@@ -146,13 +152,13 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
         /// Returns a 204 No Content response.
         /// </summary>
         public static Task<IResult> NoContentAsync()
-            => Task.FromResult<IResult>(Results.NoContent());
+            => CachedNoContent;
 
         /// <summary>
         /// Returns a 404 Not Found response with an empty body.
         /// </summary>
         public static Task<IResult> NotFoundAsync()
-            => Task.FromResult<IResult>(Results.NotFound());
+            => CachedNotFoundEmpty;
 
         /// <summary>
         /// Returns a 404 Not Found response with a message wrapped in ProblemDetails.
@@ -192,7 +198,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
         /// Returns a 401 Unauthorized response.
         /// </summary>
         public static Task<IResult> UnauthorizedAsync()
-            => Task.FromResult<IResult>(Results.Unauthorized());
+            => CachedUnauthorized;
 
         /// <summary>
         /// Returns a 401 Unauthorized response with a message wrapped in ProblemDetails.

@@ -29,12 +29,7 @@ public class GetLapsEndpoint : Endpoint<GetLapsRequest, GetLapsResponse>
     }
 }
 
-public record GetLapsRequest
-{
-    public Guid? TrackId { get; init; }
-    
-    public Guid? CarId { get; init; }
-}
+public record GetLapsRequest(Guid? TrackId, Guid? CarId);
 
 public record GetLapsResponse
 {
