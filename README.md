@@ -379,7 +379,9 @@ Request data is merged from:
 
 ### File Uploads (Multipart Form Data)
 
-FoxEndpoints automatically supports file uploads with multipart/form-data requests. Simply include `IFormFile` properties in your request model:
+FoxEndpoints automatically supports file uploads with multipart/form-data requests. Simply include `IFormFile` or `List<IFormFile>` properties in your request model.
+
+**Security Note:** Any endpoint that accepts `multipart/form-data` will have antiforgery validation automatically disabled. For form posts that do not involve file uploads, it is recommended to manually enable and validate antiforgery tokens using standard ASP.NET Core mechanisms.
 
 ```csharp
 public class UploadImageEndpoint : EndpointWithoutResponse<UploadImageRequest>

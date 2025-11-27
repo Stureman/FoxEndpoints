@@ -269,60 +269,67 @@ internal static class RequestBinder
     }
 
     /// <summary>
-    /// Creates an instance of TRequest, handling both parameterless constructors and primary constructors (records).
+    /// Creates an instance of TRequest, prioritizing primary constructors (records) and falling back to parameterless constructors.
     /// </summary>
     private static TRequest CreateInstance<TRequest>(Type requestType, PropertyInfo[] properties, Dictionary<string, object?> propertyValues)
     {
-        // Try to find a constructor that matches the properties
         var constructors = requestType.GetConstructors()
-            .OrderByDescending(c => c.GetParameters().Length)
-            .ToList();
+            .OrderByDescending(c => c.GetParameters().Length);
 
-        // Try primary constructor (for records) first
-        var primaryCtor = constructors.FirstOrDefault(c => c.GetParameters().Length == properties.Length);
-        
-        if (primaryCtor != null && primaryCtor.GetParameters().Length > 0)
+        foreach (var ctor in constructors)
         {
-            // Match constructor parameters with property values (case-insensitive)
-            var ctorParams = primaryCtor.GetParameters();
+            var ctorParams = ctor.GetParameters();
+            if (ctorParams.Length == 0) continue;
+
             var args = new object?[ctorParams.Length];
+            bool canUse = true;
 
             for (int i = 0; i < ctorParams.Length; i++)
             {
                 var param = ctorParams[i];
-                
-                // Try to find matching property value (case-insensitive)
                 if (propertyValues.TryGetValue(param.Name!, out var value))
                 {
                     args[i] = value;
                 }
+                else if (param.HasDefaultValue)
+                {
+                    args[i] = param.DefaultValue;
+                }
                 else
                 {
-                    // Use default value for parameter type
-                    args[i] = param.ParameterType.IsValueType 
-                        ? Activator.CreateInstance(param.ParameterType) 
-                        : null;
+                    // If a parameter has no value and no default, we can't use this constructor
+                    canUse = false;
+                    break;
                 }
             }
 
-            return (TRequest)primaryCtor.Invoke(args);
-        }
-
-        // Fall back to parameterless constructor + property setters
-        var request = Activator.CreateInstance(requestType);
-        if (request == null)
-            throw new InvalidOperationException($"Cannot create instance of {requestType.Name}");
-
-        foreach (var property in properties)
-        {
-            if (!property.CanWrite) continue;
-
-            if (propertyValues.TryGetValue(property.Name, out var value))
+            if (canUse)
             {
-                property.SetValue(request, value);
+                try
+                {
+                    return (TRequest)ctor.Invoke(args);
+                }
+                catch (Exception)
+                {
+                    // This constructor failed, try the next one
+                    continue;
+                }
             }
         }
 
-        return (TRequest)request;
+        // Fallback to parameterless constructor if no other constructor worked
+        var instance = Activator.CreateInstance(requestType);
+        if (instance == null)
+            throw new InvalidOperationException($"Could not create an instance of {requestType.Name}. Ensure it has a parameterless constructor or a constructor whose parameters match the request properties.");
+
+        foreach (var prop in properties)
+        {
+            if (prop.CanWrite && propertyValues.TryGetValue(prop.Name, out var value))
+            {
+                prop.SetValue(instance, value);
+            }
+        }
+
+        return (TRequest)instance;
     }
 }
