@@ -11,6 +11,7 @@ internal static class ReflectionCache
 {
     private static readonly Dictionary<Type, PropertyInfo[]> PropertyCache = new();
     private static readonly Dictionary<Type, bool> FormDataBindingCache = new();
+    private static readonly Dictionary<Type, HashSet<string>?> BindAllowlistCache = new();
     private static readonly object CacheLock = new(); // Private lock - following Microsoft guidelines
 
     /// <summary>
@@ -99,5 +100,30 @@ internal static class ReflectionCache
         }
 
         return false;
+    }
+
+    public static HashSet<string>? GetBindAllowlist(Type requestType)
+    {
+        if (BindAllowlistCache.TryGetValue(requestType, out var cached))
+            return cached;
+
+        lock (CacheLock)
+        {
+            if (BindAllowlistCache.TryGetValue(requestType, out cached))
+                return cached;
+
+            var attribute = requestType.GetCustomAttribute<BindAttribute>(inherit: true);
+            HashSet<string>? allowlist = null;
+            if (attribute != null && attribute.Properties.Count > 0)
+            {
+                allowlist = attribute.Properties
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Select(p => p.Trim())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+
+            BindAllowlistCache[requestType] = allowlist;
+            return allowlist;
+        }
     }
 }

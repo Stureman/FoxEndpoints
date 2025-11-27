@@ -4,6 +4,7 @@ using Asp.Versioning.Builder;
 using FoxEndpoints.Internal;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace FoxEndpoints;
 
@@ -15,6 +16,7 @@ public class FoxEndpointsBuilder
     private readonly WebApplication _app;
     private bool _requireAuthorization;
     private bool _isBuilt;
+    private Action<FormOptions>? _formOptionsConfigurator;
 
     internal FoxEndpointsBuilder(WebApplication app)
     {
@@ -30,6 +32,11 @@ public class FoxEndpointsBuilder
         _requireAuthorization = true;
     }
 
+    public void ConfigureFormOptions(Action<FormOptions> configure)
+    {
+        _formOptionsConfigurator = configure ?? throw new ArgumentNullException(nameof(configure));
+    }
+
     internal WebApplication Build()
     {
         // Prevent double-building
@@ -37,6 +44,13 @@ public class FoxEndpointsBuilder
             return _app;
 
         _isBuilt = true;
+
+        if (_formOptionsConfigurator is not null)
+        {
+            var options = FoxEndpointsSettings.FormOptions;
+            _formOptionsConfigurator(options);
+            FoxEndpointsSettings.ConfigureFormOptions(options);
+        }
 
         var entryAssembly = Assembly.GetEntryAssembly()
                             ?? throw new InvalidOperationException("EntryAssembly is null.");
@@ -124,12 +138,12 @@ public class FoxEndpointsBuilder
 
             designInstance.ApplyConfigurators(builder);
 
-            // Automatically configure form data acceptance if needed
-            if (ReflectionCache.RequiresFormDataConfiguration(type))
-            {
-                builder.Accepts<object>("multipart/form-data");
-                builder.DisableAntiforgery();
-            }
+            // AllowFileUploads must be explicitly configured per endpoint.
+            // if (ReflectionCache.RequiresFormDataConfiguration(type))
+            // {
+            //     builder.Accepts<object>("multipart/form-data");
+            //     builder.DisableAntiforgery();
+            // }
 
             // 5) Apply global authorization if enabled
             if (_requireAuthorization)

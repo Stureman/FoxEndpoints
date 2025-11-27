@@ -1,14 +1,30 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace FoxEndpoints;
 
 public abstract class EndpointBase
 {
-    public HttpContext HttpContext { get; internal set; } = default!;
+    public HttpContext HttpContext { get; private set; } = default!;
     internal string? Route { get; private set; }
     internal string[] Methods { get; private set; } = Array.Empty<string>();
     internal List<Action<RouteHandlerBuilder>> Configurators { get; } = new();
+
+    /// <summary>
+    /// Provides access to response-sending methods.
+    /// </summary>
+    protected EndpointSend<object> Send { get; } = new();
+    private FormOptions? _formOptions;
+
+    internal void SetContext(HttpContext context)
+    {
+        HttpContext = context;
+    }
+    protected void ConfigureFormOptions(FormOptions options) => SetFormOptions(options);
+
+    internal FormOptions? GetFormOptions() => _formOptions;
+    internal void SetFormOptions(FormOptions options) => _formOptions = options;
 
     protected EndpointBuilder Get(string route) => Verb(HttpMethods.Get, route);
     protected EndpointBuilder Post(string route) => Verb(HttpMethods.Post, route);
@@ -104,8 +120,13 @@ public sealed class EndpointBuilder
         _ep.AddConfigurator(b =>
         {
             b.Accepts<object>("multipart/form-data");
-            b.DisableAntiforgery();
         });
+        return this;
+    }
+
+    public EndpointBuilder WithFormOptions(FormOptions options)
+    {
+        _ep.SetFormOptions(options);
         return this;
     }
 }

@@ -1,5 +1,9 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace FoxEndpoints.Internal;
 
@@ -12,83 +16,41 @@ internal static class RequestBinder
     {
         var requestType = typeof(TRequest);
         var properties = ReflectionCache.GetCachedProperties(requestType);
+        var allowlist = ReflectionCache.GetBindAllowlist(requestType);
+        var errors = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-        // Collect values from route and query string
+        var routeValues = ToCaseInsensitiveDictionary(context.Request.RouteValues);
+        var queryValues = context.Request.Query
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+
         var propertyValues = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var property in properties)
         {
+            if (!CanBindProperty(property, allowlist))
+                continue;
+
             var propertyName = property.Name;
             object? valueToConvert = null;
-            bool hasValue = false;
 
-            // Try to get value from route values first
-            if (context.Request.RouteValues.TryGetValue(propertyName, out var routeValue))
+            if (routeValues.TryGetValue(propertyName, out var routeValue))
             {
                 valueToConvert = routeValue;
-                hasValue = true;
             }
-            else
+            else if (queryValues.TryGetValue(propertyName, out var queryValue))
             {
-                // Try case-insensitive route matching
-                var routeKey = context.Request.RouteValues.Keys
-                    .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
-
-                if (routeKey != null)
-                {
-                    valueToConvert = context.Request.RouteValues[routeKey];
-                    hasValue = true;
-                }
-                else
-                {
-                    // Try query string (case insensitive)
-                    var queryKey = context.Request.Query.Keys
-                        .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
-
-                    if (queryKey != null)
-                    {
-                        valueToConvert = context.Request.Query[queryKey].ToString();
-                        hasValue = true;
-                    }
-                }
+                valueToConvert = queryValue;
             }
 
-            if (hasValue && valueToConvert != null)
-            {
-                try
-                {
-                    var targetType = property.PropertyType;
-                    var underlyingType = Nullable.GetUnderlyingType(targetType);
+            if (valueToConvert == null)
+                continue;
 
-                    if (underlyingType != null)
-                    {
-                        // Nullable type
-                        var stringValue = valueToConvert.ToString();
-                        if (!string.IsNullOrWhiteSpace(stringValue))
-                        {
-                            var convertedValue = ValueConverter.Convert(stringValue, underlyingType);
-                            propertyValues[propertyName] = convertedValue;
-                        }
-                        else
-                        {
-                            propertyValues[propertyName] = null;
-                        }
-                    }
-                    else
-                    {
-                        // Regular type
-                        var convertedValue = ValueConverter.Convert(valueToConvert, targetType);
-                        propertyValues[propertyName] = convertedValue;
-                    }
-                }
-                catch (Exception)
-                {
-                    // Gracefully skip properties that cannot be converted
-                }
-            }
+            if (!TryConvertValue(property, valueToConvert, propertyValues, errors))
+                continue;
         }
 
-        // Create instance using primary constructor if available, otherwise use parameterless constructor
+        ThrowIfErrors(errors);
+
         return CreateInstance<TRequest>(requestType, properties, propertyValues);
     }
 
@@ -97,173 +59,103 @@ internal static class RequestBinder
         if (request == null)
             throw new ArgumentNullException(nameof(request));
 
+        var routeValues = ToCaseInsensitiveDictionary(context.Request.RouteValues);
+        if (routeValues.Count == 0)
+            return request;
+
+        var errors = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var requestType = typeof(TRequest);
         var properties = ReflectionCache.GetCachedProperties(requestType);
+        var allowlist = ReflectionCache.GetBindAllowlist(requestType);
 
         foreach (var property in properties)
         {
-            if (!property.CanWrite) continue;
+            if (!CanBindProperty(property, allowlist) || !property.CanWrite)
+                continue;
 
             var propertyName = property.Name;
+            if (!routeValues.TryGetValue(propertyName, out var routeValue) || routeValue is null)
+                continue;
 
-            var routeKey = context.Request.RouteValues.Keys
-                .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
+            var currentValue = property.GetValue(request);
+            if (!IsDefaultValue(currentValue, property.PropertyType))
+                continue;
 
-            if (routeKey != null)
+            try
             {
-                var currentValue = property.GetValue(request);
-                var isDefaultValue = currentValue == null ||
-                                   (property.PropertyType.IsValueType &&
-                                    currentValue.Equals(Activator.CreateInstance(property.PropertyType)));
-
-                if (isDefaultValue)
-                {
-                    var routeValue = context.Request.RouteValues[routeKey];
-                    var underlyingType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-                    var convertedValue = Convert.ChangeType(routeValue, underlyingType);
-                    property.SetValue(request, convertedValue);
-                }
+                var converted = ConvertForAssignment(property, routeValue);
+                property.SetValue(request, converted);
+            }
+            catch (Exception ex)
+            {
+                AddError(errors, propertyName, ex.Message);
             }
         }
 
+        ThrowIfErrors(errors);
         return request;
     }
 
-    public static async Task<TRequest> BindFromFormAsync<TRequest>(HttpContext context)
+    public static async Task<TRequest> BindFromFormAsync<TRequest>(HttpContext context, FormOptions? formOptions)
     {
         var requestType = typeof(TRequest);
         var properties = ReflectionCache.GetCachedProperties(requestType);
-
-        // Collect values for constructor parameters
+        var allowlist = ReflectionCache.GetBindAllowlist(requestType);
+        var errors = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var propertyValues = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
-        if (context.Request.HasFormContentType && context.Request.Form != null)
+        var routeValues = ToCaseInsensitiveDictionary(context.Request.RouteValues);
+        var queryValues = context.Request.Query
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        IFormCollection? form = null;
+        Dictionary<string, string> formValues;
+        if (context.Request.HasFormContentType)
         {
-            var form = await context.Request.ReadFormAsync();
-
-            foreach (var property in properties)
-            {
-                var propertyName = property.Name;
-                object? valueToSet = null;
-                bool hasValue = false;
-
-                // Check for IFormFile
-                if (property.PropertyType == typeof(IFormFile))
-                {
-                    var file = form.Files.GetFile(propertyName)
-                               ?? form.Files.FirstOrDefault(f => string.Equals(f.Name, propertyName, StringComparison.OrdinalIgnoreCase));
-                    if (file != null)
-                    {
-                        valueToSet = file;
-                        hasValue = true;
-                    }
-                }
-                // Check for IFormFileCollection
-                else if (property.PropertyType == typeof(IFormFileCollection))
-                {
-                    if (form.Files.Count > 0)
-                    {
-                        valueToSet = form.Files;
-                        hasValue = true;
-                    }
-                }
-                // Check for List<IFormFile>
-                else if (property.PropertyType.IsGenericType &&
-                         property.PropertyType.GetGenericTypeDefinition() == typeof(List<>) &&
-                         property.PropertyType.GetGenericArguments()[0] == typeof(IFormFile))
-                {
-                    var filesForProperty = form.Files
-                        .Where(f => string.Equals(f.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-
-                    if (filesForProperty.Count > 0)
-                    {
-                        valueToSet = filesForProperty;
-                        hasValue = true;
-                    }
-                }
-                else
-                {
-                    // Try route values first
-                    if (context.Request.RouteValues.TryGetValue(propertyName, out var routeValue))
-                    {
-                        valueToSet = routeValue;
-                        hasValue = true;
-                    }
-                    else
-                    {
-                        // Try case-insensitive route match
-                        var routeKey = context.Request.RouteValues.Keys
-                            .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
-
-                        if (routeKey != null)
-                        {
-                            valueToSet = context.Request.RouteValues[routeKey];
-                            hasValue = true;
-                        }
-                        else
-                        {
-                            // Try form fields
-                            var formKey = form.Keys
-                                .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
-
-                            if (formKey != null)
-                            {
-                                valueToSet = form[formKey].ToString();
-                                hasValue = true;
-                            }
-                            else
-                            {
-                                // Try query string
-                                var queryKey = context.Request.Query.Keys
-                                    .FirstOrDefault(k => string.Equals(k, propertyName, StringComparison.OrdinalIgnoreCase));
-
-                                if (queryKey != null)
-                                {
-                                    valueToSet = context.Request.Query[queryKey].ToString();
-                                    hasValue = true;
-                                }
-                            }
-                        }
-                    }
-
-                    // Convert the value if needed
-                    if (hasValue && valueToSet != null && property.PropertyType != typeof(IFormFile))
-                    {
-                        try
-                        {
-                            var targetType = property.PropertyType;
-                            var underlyingType = Nullable.GetUnderlyingType(targetType);
-
-                            if (underlyingType != null)
-                            {
-                                // Nullable type
-                                var stringValue = valueToSet.ToString();
-                                if (!string.IsNullOrWhiteSpace(stringValue))
-                                    valueToSet = ValueConverter.Convert(stringValue, underlyingType);
-                                else
-                                    valueToSet = null;
-                            }
-                            else if (targetType != typeof(string))
-                            {
-                                // Non-string type - convert
-                                valueToSet = ValueConverter.Convert(valueToSet, targetType);
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            // Skip properties that can't be converted
-                            hasValue = false;
-                        }
-                    }
-                }
-
-                if (hasValue)
-                {
-                    propertyValues[propertyName] = valueToSet;
-                }
-            }
+            var options = formOptions ?? FoxEndpointsSettings.FormOptions;
+            form = await context.Request.ReadFormAsync(options);
+            formValues = form.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString(), StringComparer.OrdinalIgnoreCase);
         }
+        else
+        {
+            formValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        foreach (var property in properties)
+        {
+            if (!CanBindProperty(property, allowlist))
+                continue;
+
+            var propertyName = property.Name;
+            object? value = null;
+
+            if (form != null && TryBindFileProperty(property, form, out value))
+            {
+                propertyValues[propertyName] = value;
+                continue;
+            }
+
+            if (routeValues.TryGetValue(propertyName, out var routeValue))
+            {
+                value = routeValue;
+            }
+            else if (formValues.TryGetValue(propertyName, out var formValue))
+            {
+                value = formValue;
+            }
+            else if (queryValues.TryGetValue(propertyName, out var queryValue))
+            {
+                value = queryValue;
+            }
+
+            if (value == null)
+                continue;
+
+            if (!TryConvertValue(property, value, propertyValues, errors))
+                continue;
+        }
+
+        ThrowIfErrors(errors);
 
         return CreateInstance<TRequest>(requestType, properties, propertyValues);
     }
@@ -287,7 +179,10 @@ internal static class RequestBinder
             for (int i = 0; i < ctorParams.Length; i++)
             {
                 var param = ctorParams[i];
-                if (propertyValues.TryGetValue(param.Name!, out var value))
+                var lookupName = param.Name ?? string.Empty;
+
+                if (propertyValues.TryGetValue(lookupName, out var value) ||
+                    propertyValues.TryGetValue(ToPascalCase(lookupName), out value))
                 {
                     args[i] = value;
                 }
@@ -331,5 +226,142 @@ internal static class RequestBinder
         }
 
         return (TRequest)instance;
+    }
+
+    private static bool TryConvertValue(PropertyInfo property, object value, Dictionary<string, object?> propertyValues, Dictionary<string, List<string>> errors)
+    {
+        try
+        {
+            var converted = ConvertForAssignment(property, value);
+            propertyValues[property.Name] = converted;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AddError(errors, property.Name, ex.Message);
+            return false;
+        }
+    }
+
+    private static void ThrowIfErrors(Dictionary<string, List<string>> errors)
+    {
+        if (errors.Count == 0)
+            return;
+
+        throw RequestBindingException.FromErrors(errors);
+    }
+
+    private static Dictionary<string, object?> ToCaseInsensitiveDictionary(RouteValueDictionary values)
+    {
+        var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in values)
+        {
+            dict[pair.Key] = pair.Value;
+        }
+        return dict;
+    }
+
+    private static object? ConvertForAssignment(PropertyInfo property, object value)
+    {
+        var targetType = property.PropertyType;
+        var underlyingType = Nullable.GetUnderlyingType(targetType);
+
+        if (underlyingType != null)
+        {
+            var stringValue = value?.ToString();
+            if (string.IsNullOrWhiteSpace(stringValue))
+                return null;
+
+            return ValueConverter.Convert(stringValue, underlyingType);
+        }
+
+        if (targetType == typeof(string))
+            return value?.ToString();
+
+        return ValueConverter.Convert(value, targetType);
+    }
+
+    private static bool IsDefaultValue(object? currentValue, Type propertyType)
+    {
+        if (currentValue == null)
+            return true;
+
+        if (!propertyType.IsValueType)
+            return false;
+
+        var defaultValue = Activator.CreateInstance(propertyType);
+        return currentValue.Equals(defaultValue);
+    }
+
+    private static void AddError(Dictionary<string, List<string>> errors, string propertyName, string message)
+    {
+        if (!errors.TryGetValue(propertyName, out var list))
+        {
+            list = new List<string>();
+            errors[propertyName] = list;
+        }
+
+        list.Add(message);
+    }
+
+    private static bool TryBindFileProperty(PropertyInfo property, IFormCollection form, out object? value)
+    {
+        value = null;
+
+        if (property.PropertyType == typeof(IFormFile))
+        {
+            value = form.Files.GetFile(property.Name)
+                    ?? form.Files.FirstOrDefault(f => string.Equals(f.Name, property.Name, StringComparison.OrdinalIgnoreCase));
+            return value != null;
+        }
+
+        if (property.PropertyType == typeof(IFormFileCollection))
+        {
+            if (form.Files.Count > 0)
+            {
+                value = form.Files;
+                return true;
+            }
+            return false;
+        }
+
+        if (property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(List<>)
+            && property.PropertyType.GetGenericArguments()[0] == typeof(IFormFile))
+        {
+            var files = form.Files
+                .Where(f => string.Equals(f.Name, property.Name, StringComparison.OrdinalIgnoreCase))
+                .Cast<IFormFile>()
+                .ToList();
+
+            if (files.Count > 0)
+            {
+                value = files;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string ToPascalCase(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        if (char.IsUpper(value[0]))
+            return value;
+
+        return char.ToUpperInvariant(value[0]) + value.Substring(1);
+    }
+
+    private static bool CanBindProperty(PropertyInfo property, HashSet<string>? allowlist)
+    {
+        if (property.GetCustomAttribute<BindNeverAttribute>(inherit: true) != null)
+            return false;
+
+        if (allowlist == null || allowlist.Count == 0)
+            return true;
+
+        return allowlist.Contains(property.Name);
     }
 }

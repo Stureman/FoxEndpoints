@@ -376,6 +376,24 @@ Request data is merged from:
 1. Route parameters (`{id}`, `{name}`, etc.)
 2. Query string parameters
 3. JSON request body
+4. Form fields (`multipart/form-data`) when `AllowFileUploads()` or `AcceptsFormData()` is used
+
+> ⚠️ **Validate every request DTO.** FoxEndpoints will populate *all* public setters it can match in the incoming payload (route, query, body, form). This is powerful but it also means "mass assignment" is possible: a malicious client can supply values for properties that you did not intend to expose (for example, `Role`, `IsAdmin`, or even `Id`). Always enforce business rules inside `HandleAsync` (or a custom validator) before persisting changes:
+
+```csharp
+public override async Task<IResult> HandleAsync(UpdateUserRequest request, CancellationToken ct)
+{
+    if (request.Id != RouteId) // trust the route, not the body
+        return await Send.BadRequestAsync("Route and payload IDs must match.");
+
+    if (!User.IsInRole("Admin") && request.Role != CurrentRole)
+        return await Send.ForbiddenAsync("Only admins can change roles.");
+
+    // proceed once invariants hold
+}
+```
+
+If you prefer tighter control, you can still use native ASP.NET Core binding attributes such as `[FromBody]`, `[FromRoute]`, or `[BindNever]` on individual properties/parameters—the FoxEndpoints binder respects them. Regardless of the approach, keep DTOs minimal and validate them explicitly.
 
 ### File Uploads (Multipart Form Data)
 

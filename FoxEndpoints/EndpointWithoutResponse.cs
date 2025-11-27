@@ -1,6 +1,6 @@
+using FoxEndpoints.Internal;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.Reflection;
 
 namespace FoxEndpoints;
 
@@ -10,266 +10,71 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
 
     internal static Delegate BuildHandler(Type endpointType, string httpMethod)
     {
-        // For DELETE with complex types, manually bind from HttpContext
-        // For POST/PUT/PATCH with complex types, use FromBody and merge route params
-        var requestType = typeof(TRequest);
-        var isSimpleType = requestType.IsPrimitive || requestType == typeof(string) || requestType == typeof(Guid) || requestType == typeof(DateTime);
-        var requiresFormData = RequiresFormDataBinding(requestType);
-        
-        if (httpMethod == HttpMethods.Delete && !isSimpleType)
+        var requiresFormData = ReflectionCache.RequiresFormDataConfiguration(endpointType);
+
+        if (httpMethod == HttpMethods.Delete)
         {
-            // Manually bind from route/query for DELETE with complex types
             return async (HttpContext ctx, CancellationToken ct) =>
             {
-                var ep = (EndpointWithoutResponse<TRequest>)
-                    EndpointExtensions.CreateEndpointInstance(endpointType, ctx.RequestServices);
-                
-                ep.HttpContext = ctx;
-                EndpointContext<TRequest, object>.Current = ep;
-
+                var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                ep.SetContext(ctx);
                 try
                 {
-                    var request = EndpointExtensions.BindFromHttpContext<TRequest>(ctx);
+                    var request = ep.BindFromHttpContext<TRequest>(ctx);
                     return await ep.HandleAsync(request, ct);
                 }
-                finally
+                catch (RequestBindingException ex)
                 {
-                    EndpointContext<TRequest, object>.Current = null;
+                    return Results.ValidationProblem(ex.Errors, statusCode: StatusCodes.Status400BadRequest,
+                        title: "Invalid request payload");
                 }
             };
         }
         else if (httpMethod == HttpMethods.Post || httpMethod == HttpMethods.Put || httpMethod == HttpMethods.Patch)
         {
-            // For form data (file uploads), manually bind from HttpContext to avoid JSON inference
             if (requiresFormData)
             {
                 return async (HttpContext ctx, CancellationToken ct) =>
                 {
-                    var ep = (EndpointWithoutResponse<TRequest>)
-                        EndpointExtensions.CreateEndpointInstance(endpointType, ctx.RequestServices);
-                    
-                    ep.HttpContext = ctx;
-                    EndpointContext<TRequest, object>.Current = ep;
-
+                    var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                    ep.SetContext(ctx);
                     try
                     {
-                        // Manually bind from form data and route parameters
-                        var request = await EndpointExtensions.BindFromFormAsync<TRequest>(ctx);
+                        var request = await ep.BindFromFormAsync<TRequest>(ctx);
                         return await ep.HandleAsync(request, ct);
                     }
-                    finally
+                    catch (RequestBindingException ex)
                     {
-                        EndpointContext<TRequest, object>.Current = null;
+                        return Results.ValidationProblem(ex.Errors, statusCode: StatusCodes.Status400BadRequest,
+                            title: "Invalid request payload");
                     }
                 };
             }
-            
-            // Bind from body for POST/PUT/PATCH, then merge route parameters
+
             return async ([FromBody] TRequest req, HttpContext ctx, CancellationToken ct) =>
             {
-                var ep = (EndpointWithoutResponse<TRequest>)
-                    EndpointExtensions.CreateEndpointInstance(endpointType, ctx.RequestServices);
-                
-                ep.HttpContext = ctx;
-                EndpointContext<TRequest, object>.Current = ep;
-
+                var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                ep.SetContext(ctx);
                 try
                 {
-                    // Merge route parameters into the request object (e.g., {id} from /users/{id}/status)
-                    var mergedRequest = EndpointExtensions.MergeRouteParameters(req, ctx);
+                    var mergedRequest = ep.MergeRouteParameters(req, ctx);
                     return await ep.HandleAsync(mergedRequest, ct);
                 }
-                finally
+                catch (RequestBindingException ex)
                 {
-                    EndpointContext<TRequest, object>.Current = null;
+                    return Results.ValidationProblem(ex.Errors, statusCode: StatusCodes.Status400BadRequest,
+                        title: "Invalid request payload");
                 }
             };
         }
         else
         {
-            // For simple types or other methods, use standard binding
             return async (TRequest req, HttpContext ctx, CancellationToken ct) =>
             {
-                var ep = (EndpointWithoutResponse<TRequest>)
-                    EndpointExtensions.CreateEndpointInstance(endpointType, ctx.RequestServices);
-                
-                ep.HttpContext = ctx;
-                EndpointContext<TRequest, object>.Current = ep;
-
-                try
-                {
-                    return await ep.HandleAsync(req, ct);
-                }
-                finally
-                {
-                    EndpointContext<TRequest, object>.Current = null;
-                }
+                var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                ep.SetContext(ctx);
+                return await ep.HandleAsync(req, ct);
             };
         }
-    }
-
-    /// <summary>
-    /// Send methods for returning responses from endpoints without a typed response.
-    /// All methods return Task&lt;IResult&gt; to allow natural early termination via return statements.
-    /// </summary>
-    protected static class Send
-    {
-        // Cache common responses to avoid repeated allocations
-        private static readonly Task<IResult> CachedNoContent = Task.FromResult<IResult>(Results.NoContent());
-        private static readonly Task<IResult> CachedOkEmpty = Task.FromResult<IResult>(Results.Ok());
-        private static readonly Task<IResult> CachedNotFoundEmpty = Task.FromResult<IResult>(Results.NotFound());
-        private static readonly Task<IResult> CachedUnauthorized = Task.FromResult<IResult>(Results.Unauthorized());
-        
-        /// <summary>
-        /// Returns a 200 OK response with an empty body.
-        /// </summary>
-        public static Task<IResult> OkAsync()
-            => CachedOkEmpty;
-
-        /// <summary>
-        /// Returns a 204 No Content response.
-        /// </summary>
-        public static Task<IResult> NoContentAsync()
-            => CachedNoContent;
-
-        /// <summary>
-        /// Returns a 404 Not Found response with an empty body.
-        /// </summary>
-        public static Task<IResult> NotFoundAsync()
-            => CachedNotFoundEmpty;
-
-        /// <summary>
-        /// Returns a 404 Not Found response with a message wrapped in ProblemDetails.
-        /// </summary>
-        public static Task<IResult> NotFoundAsync(string message)
-        {
-            var problemDetails = new ProblemDetails
-            {
-                Status = 404,
-                Title = "Not Found",
-                Detail = message
-            };
-            return Task.FromResult<IResult>(Results.NotFound(problemDetails));
-        }
-
-        /// <summary>
-        /// Returns a 400 Bad Request response with a message wrapped in ProblemDetails.
-        /// </summary>
-        public static Task<IResult> BadRequestAsync(string message)
-        {
-            var problemDetails = new ProblemDetails
-            {
-                Status = 400,
-                Title = "Bad Request",
-                Detail = message
-            };
-            return Task.FromResult<IResult>(Results.BadRequest(problemDetails));
-        }
-
-        /// <summary>
-        /// Returns a 400 Bad Request response with custom ProblemDetails.
-        /// </summary>
-        public static Task<IResult> BadRequestAsync(ProblemDetails problemDetails)
-            => Task.FromResult<IResult>(Results.BadRequest(problemDetails));
-
-        /// <summary>
-        /// Returns a 401 Unauthorized response.
-        /// </summary>
-        public static Task<IResult> UnauthorizedAsync()
-            => CachedUnauthorized;
-
-        /// <summary>
-        /// Returns a 401 Unauthorized response with a message wrapped in ProblemDetails.
-        /// </summary>
-        public static Task<IResult> UnauthorizedAsync(string message)
-        {
-            var problemDetails = new ProblemDetails
-            {
-                Status = 401,
-                Title = "Unauthorized",
-                Detail = message
-            };
-            return Task.FromResult<IResult>(Results.Problem(problemDetails));
-        }
-
-        /// <summary>
-        /// Returns a 403 Forbidden response.
-        /// </summary>
-        public static Task<IResult> ForbiddenAsync()
-            => Task.FromResult<IResult>(Results.Forbid());
-
-        /// <summary>
-        /// Returns a 403 Forbidden response with a message wrapped in ProblemDetails.
-        /// </summary>
-        public static Task<IResult> ForbiddenAsync(string message)
-        {
-            var problemDetails = new ProblemDetails
-            {
-                Status = 403,
-                Title = "Forbidden",
-                Detail = message
-            };
-            return Task.FromResult<IResult>(Results.Problem(problemDetails));
-        }
-
-        /// <summary>
-        /// Returns a 409 Conflict response with a message wrapped in ProblemDetails.
-        /// </summary>
-        public static Task<IResult> ConflictAsync(string message)
-        {
-            var problemDetails = new ProblemDetails
-            {
-                Status = 409,
-                Title = "Conflict",
-                Detail = message
-            };
-            return Task.FromResult<IResult>(Results.Conflict(problemDetails));
-        }
-    }
-
-    /// <summary>
-    /// Determines if a request type requires form data binding (multipart/form-data).
-    /// Returns true if the type contains IFormFile properties or properties with [FromForm] attribute.
-    /// </summary>
-    private static bool RequiresFormDataBinding(Type requestType)
-    {
-        var properties = requestType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        
-        foreach (var property in properties)
-        {
-            // Check if property is IFormFile or IFormFileCollection
-            if (property.PropertyType == typeof(IFormFile) || 
-                property.PropertyType == typeof(IFormFileCollection))
-            {
-                return true;
-            }
-            
-            // Check if property is a collection of IFormFile (List<IFormFile>, IEnumerable<IFormFile>, etc.)
-            if (property.PropertyType.IsGenericType)
-            {
-                var genericTypeDef = property.PropertyType.GetGenericTypeDefinition();
-                var genericArgs = property.PropertyType.GetGenericArguments();
-                
-                if (genericArgs.Length > 0 && genericArgs[0] == typeof(IFormFile))
-                {
-                    // Check for common collection types
-                    if (genericTypeDef == typeof(List<>) ||
-                        genericTypeDef == typeof(IEnumerable<>) ||
-                        genericTypeDef == typeof(IList<>) ||
-                        genericTypeDef == typeof(ICollection<>))
-                    {
-                        return true;
-                    }
-                }
-            }
-            
-            // Check if property has [FromForm] attribute
-            if (property.GetCustomAttribute<FromFormAttribute>() != null)
-            {
-                return true;
-            }
-        }
-        
-        return false;
     }
 }
