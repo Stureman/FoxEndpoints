@@ -11,12 +11,16 @@ namespace FoxEndpoints;
 public static class EndpointExtensions
 {
     /// <summary>
-    /// Registers FoxEndpoints for the application.
-    /// Returns a builder for additional configuration.
+    /// Discovers and registers all FoxEndpoints from the entry assembly.
     /// </summary>
-    public static FoxEndpointsBuilder UseFoxEndpoints(this WebApplication app)
+    /// <param name="app">The <see cref="WebApplication"/> to add the endpoints to.</param>
+    /// <param name="configure">An optional action to configure global endpoint settings.</param>
+    /// <returns>The <see cref="WebApplication"/> so that additional calls can be chained.</returns>
+    public static WebApplication UseFoxEndpoints(this WebApplication app, Action<FoxEndpointsBuilder>? configure = null)
     {
-        return new FoxEndpointsBuilder(app);
+        var builder = new FoxEndpointsBuilder(app);
+        configure?.Invoke(builder);
+        return builder.Build();
     }
 
     // Public methods used by endpoint base classes - delegate to internal implementations

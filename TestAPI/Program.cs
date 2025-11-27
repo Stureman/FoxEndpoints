@@ -71,7 +71,7 @@ app.UseAuthorization();
 
 // Map FoxEndpoints
 // Option 1: No global authorization (endpoints opt-in individually via .RequireAuthorization())
-app.UseFoxEndpoints().RequireAuthorization();
+app.UseFoxEndpoints(c => c.RequireAuthorization());
 
 // Option 2: Global authorization (ALL endpoints require auth - uncomment to enable)
 // app.UseFoxEndpoints().RequireAuthorization();

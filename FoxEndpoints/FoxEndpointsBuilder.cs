@@ -23,22 +23,11 @@ public class FoxEndpointsBuilder
 
     /// <summary>
     /// Requires authorization for all FoxEndpoints.
-    /// Example: app.UseFoxEndpoints().RequireAuthorization();
-    /// This will automatically trigger endpoint registration.
+    /// Example: app.UseFoxEndpoints(c => c.RequireAuthorization());
     /// </summary>
-    public WebApplication RequireAuthorization()
+    public void RequireAuthorization()
     {
         _requireAuthorization = true;
-        return Build();
-    }
-
-    /// <summary>
-    /// Implicitly registers all endpoints when the builder is used where WebApplication is expected.
-    /// This maintains backward compatibility with code like: app.UseFoxEndpoints();
-    /// </summary>
-    public static implicit operator WebApplication(FoxEndpointsBuilder builder)
-    {
-        return builder.Build();
     }
 
     internal WebApplication Build()
