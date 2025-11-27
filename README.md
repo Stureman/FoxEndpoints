@@ -310,10 +310,10 @@ FoxEndpoints automatically:
 
 ## Global Authorization
 
-Require authorization for all endpoints by default:
+Require authorization for all endpoints by default using a configuration action:
 
 ```csharp
-app.UseFoxEndpoints().RequireAuthorization();
+app.UseFoxEndpoints(c => c.RequireAuthorization());
 ```
 
 Individual endpoints can opt-out using `.AllowAnonymous()`:
