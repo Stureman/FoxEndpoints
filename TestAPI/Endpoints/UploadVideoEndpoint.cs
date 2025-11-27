@@ -17,6 +17,7 @@ public sealed class UploadVideoEndpoint : EndpointWithoutResponse<UploadVideoReq
         Post("/videos/{id:guid}")
             .AllowAnonymous()
             .AllowFileUploads()
+            .WithTags("Videos")
             .WithFileBindingMode(FileBindingMode.Stream)
             .WithName("StreamVideoUpload");
     }
