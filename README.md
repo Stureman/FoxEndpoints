@@ -45,6 +45,8 @@ app.UseFoxEndpoints();
 app.Run();
 ```
 
+> ⚠️ **Design-time note:** `Configure()` runs on a temporary endpoint instance built outside DI, so keep it limited to route setup (`Get(...)`, metadata, etc.). Do not access injected services inside `Configure()`—resolve dependencies inside `HandleAsync` instead, where the real DI-scoped endpoint instance is used.
+
 ### 2. Create Your First Endpoint
 
 ```csharp

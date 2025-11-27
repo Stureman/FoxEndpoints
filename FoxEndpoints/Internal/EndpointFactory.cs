@@ -49,7 +49,22 @@ internal static class EndpointFactory
 
         var body = Expression.New(ctor, args);
 
-        return Expression.Lambda<Func<IServiceProvider, object>>(body, providerParam).Compile();
+        var activator = Expression.Lambda<Func<IServiceProvider, object>>(body, providerParam).Compile();
+
+        return sp =>
+        {
+            var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+            var scope = scopeFactory.CreateScope();
+            try
+            {
+                return new ScopedEndpointWrapper(scope, activator(scope.ServiceProvider));
+            }
+            catch
+            {
+                scope.Dispose();
+                throw;
+            }
+        };
     }
 
     /// <summary>
@@ -73,5 +88,37 @@ internal static class EndpointFactory
             .ToArray();
 
         return ctor.Invoke(parameters);
+    }
+
+    internal sealed class ScopedEndpointWrapper : IDisposable, IAsyncDisposable
+    {
+        private readonly IServiceScope _scope;
+        public object Endpoint { get; }
+
+        public ScopedEndpointWrapper(IServiceScope scope, object endpoint)
+        {
+            _scope = scope;
+            Endpoint = endpoint;
+        }
+
+        public void Dispose()
+        {
+            if (Endpoint is IDisposable disposable)
+                disposable.Dispose();
+            _scope.Dispose();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Endpoint is IAsyncDisposable asyncDisposable)
+                await asyncDisposable.DisposeAsync();
+            else if (Endpoint is IDisposable disposable)
+                disposable.Dispose();
+
+            if (_scope is IAsyncDisposable asyncScope)
+                await asyncScope.DisposeAsync();
+            else
+                _scope.Dispose();
+        }
     }
 }

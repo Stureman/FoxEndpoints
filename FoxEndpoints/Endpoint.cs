@@ -21,7 +21,9 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
         {
             return async (HttpContext ctx, CancellationToken ct) =>
             {
-                var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                await using var _ = wrapper;
+                var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
                 ep.SetContext(ctx);
                 try
                 {
@@ -40,7 +42,9 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
             {
                 return async (HttpContext ctx, CancellationToken ct) =>
                 {
-                    var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                    var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                    await using var _ = wrapper;
+                    var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
                     ep.SetContext(ctx);
                     try
                     {
@@ -56,7 +60,9 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 
             return async ([FromBody] TRequest req, HttpContext ctx, CancellationToken ct) =>
             {
-                var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+                await using var _ = wrapper;
+                var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
                 ep.SetContext(ctx);
                 try
                 {
@@ -72,7 +78,9 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 
         return async (TRequest req, HttpContext ctx, CancellationToken ct) =>
         {
-            var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+            var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
+            await using var _ = wrapper;
+            var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
             ep.SetContext(ctx);
             return await ep.HandleAsync(req, ct);
         };
