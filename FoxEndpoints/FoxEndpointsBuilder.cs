@@ -17,6 +17,7 @@ public class FoxEndpointsBuilder
     private bool _requireAuthorization;
     private bool _isBuilt;
     private Action<FormOptions>? _formOptionsConfigurator;
+    private FileBindingMode _fileBindingMode = FileBindingMode.Buffered;
 
     internal FoxEndpointsBuilder(WebApplication app)
     {
@@ -37,6 +38,11 @@ public class FoxEndpointsBuilder
         _formOptionsConfigurator = configure ?? throw new ArgumentNullException(nameof(configure));
     }
 
+    public void UseFileBindingMode(FileBindingMode mode)
+    {
+        _fileBindingMode = mode;
+    }
+
     internal WebApplication Build()
     {
         // Prevent double-building
@@ -51,6 +57,8 @@ public class FoxEndpointsBuilder
             _formOptionsConfigurator(options);
             FoxEndpointsSettings.ConfigureFormOptions(options);
         }
+
+        FoxEndpointsSettings.SetFileBindingMode(_fileBindingMode);
 
         var entryAssembly = Assembly.GetEntryAssembly()
                             ?? throw new InvalidOperationException("EntryAssembly is null.");

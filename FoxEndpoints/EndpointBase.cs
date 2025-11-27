@@ -16,6 +16,7 @@ public abstract class EndpointBase
     /// </summary>
     protected EndpointSend<object> Send { get; } = new();
     private FormOptions? _formOptions;
+    private FileBindingMode _fileBindingMode = FileBindingMode.Buffered;
 
     internal void SetContext(HttpContext context)
     {
@@ -25,6 +26,8 @@ public abstract class EndpointBase
 
     internal FormOptions? GetFormOptions() => _formOptions;
     internal void SetFormOptions(FormOptions options) => _formOptions = options;
+    internal FileBindingMode GetFileBindingMode() => _fileBindingMode;
+    internal void SetFileBindingMode(FileBindingMode mode) => _fileBindingMode = mode;
 
     protected EndpointBuilder Get(string route) => Verb(HttpMethods.Get, route);
     protected EndpointBuilder Post(string route) => Verb(HttpMethods.Post, route);
@@ -127,6 +130,12 @@ public sealed class EndpointBuilder
     public EndpointBuilder WithFormOptions(FormOptions options)
     {
         _ep.SetFormOptions(options);
+        return this;
+    }
+
+    public EndpointBuilder WithFileBindingMode(FileBindingMode mode)
+    {
+        _ep.SetFileBindingMode(mode);
         return this;
     }
 }

@@ -395,6 +395,51 @@ public override async Task<IResult> HandleAsync(UpdateUserRequest request, Cance
 
 If you prefer tighter control, you can still use native ASP.NET Core binding attributes such as `[FromBody]`, `[FromRoute]`, or `[BindNever]` on individual properties/parameters—the FoxEndpoints binder respects them. Regardless of the approach, keep DTOs minimal and validate them explicitly.
 
+### File Binding Modes (Buffered vs. Streaming)
+
+By default FoxEndpoints buffers multipart uploads and exposes `IFormFile` (just like ASP.NET Core). For large payloads you can switch to streaming mode globally or per endpoint:
+
+```csharp
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+app.UseFoxEndpoints(cfg =>
+{
+    cfg.UseFileBindingMode(FileBindingMode.Stream); // opt-in to streaming everywhere
+});
+
+app.Run();
+```
+
+Or keep buffered uploads globally and stream only where it matters:
+
+```csharp
+public class UploadVideoEndpoint : EndpointWithoutResponse<UploadVideoRequest>
+{
+    public override void Configure()
+    {
+        Post("/videos/{id}")
+            .AllowFileUploads()
+            .WithFileBindingMode(FileBindingMode.Stream); // this endpoint receives StreamFile
+    }
+
+    public override async Task<IResult> HandleAsync(UploadVideoRequest request, CancellationToken ct)
+    {
+        await using var destination = File.Create($"/tmp/{request.Video.FileName}");
+        await request.Video.Body.CopyToAsync(destination, ct); // process as data arrives
+        return await Send.NoContentAsync();
+    }
+}
+
+public record UploadVideoRequest
+{
+    public required StreamFile Video { get; init; }
+}
+```
+
+When `FileBindingMode.Stream` is active, declare `StreamFile` or `List<StreamFile>` properties on your request DTOs. Each `StreamFile` exposes `Name`, `FileName`, `ContentType`, and a forward-only `Body` stream. You are responsible for copying the stream to storage and disposing it (e.g., via `await using`).
+
 ### File Uploads (Multipart Form Data)
 
 FoxEndpoints automatically supports file uploads with multipart/form-data requests. Simply include `IFormFile` or `List<IFormFile>` properties in your request model.

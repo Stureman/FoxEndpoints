@@ -96,13 +96,15 @@ internal static class RequestBinder
         return request;
     }
 
-    public static async Task<TRequest> BindFromFormAsync<TRequest>(HttpContext context, FormOptions? formOptions)
+    public static async Task<TRequest> BindFromFormAsync<TRequest>(HttpContext context, FormOptions? formOptions, FileBindingMode? fileBindingMode = null)
     {
         var requestType = typeof(TRequest);
         var properties = ReflectionCache.GetCachedProperties(requestType);
         var allowlist = ReflectionCache.GetBindAllowlist(requestType);
         var errors = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var propertyValues = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        var effectiveBindingMode = fileBindingMode ?? FoxEndpointsSettings.FileBindingMode;
 
         var routeValues = ToCaseInsensitiveDictionary(context.Request.RouteValues);
         var queryValues = context.Request.Query
@@ -129,7 +131,7 @@ internal static class RequestBinder
             var propertyName = property.Name;
             object? value = null;
 
-            if (form != null && TryBindFileProperty(property, form, out value))
+            if (form != null && TryBindFileProperty(property, form, effectiveBindingMode, out value))
             {
                 propertyValues[propertyName] = value;
                 continue;
@@ -304,7 +306,7 @@ internal static class RequestBinder
         list.Add(message);
     }
 
-    private static bool TryBindFileProperty(PropertyInfo property, IFormCollection form, out object? value)
+    private static bool TryBindFileProperty(PropertyInfo property, IFormCollection form, FileBindingMode bindingMode, out object? value)
     {
         value = null;
 
@@ -313,6 +315,17 @@ internal static class RequestBinder
             value = form.Files.GetFile(property.Name)
                     ?? form.Files.FirstOrDefault(f => string.Equals(f.Name, property.Name, StringComparison.OrdinalIgnoreCase));
             return value != null;
+        }
+        if (bindingMode == FileBindingMode.Stream && property.PropertyType == typeof(StreamFile))
+        {
+            var file = form.Files.GetFile(property.Name)
+                       ?? form.Files.FirstOrDefault(f => string.Equals(f.Name, property.Name, StringComparison.OrdinalIgnoreCase));
+            if (file != null)
+            {
+                value = StreamFile.FromFormFile(file);
+                return true;
+            }
+            return false;
         }
 
         if (property.PropertyType == typeof(IFormFileCollection))
@@ -325,6 +338,20 @@ internal static class RequestBinder
             return false;
         }
 
+        if (bindingMode == FileBindingMode.Stream && property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(List<>)
+            && property.PropertyType.GetGenericArguments()[0] == typeof(StreamFile))
+        {
+            var files = form.Files
+                .Where(f => string.Equals(f.Name, property.Name, StringComparison.OrdinalIgnoreCase))
+                .Select(StreamFile.FromFormFile)
+                .ToList();
+
+            if (files.Count > 0)
+            {
+                value = files;
+                return true;
+            }
+        }
         if (property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(List<>)
             && property.PropertyType.GetGenericArguments()[0] == typeof(IFormFile))
         {

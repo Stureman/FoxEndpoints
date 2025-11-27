@@ -33,5 +33,5 @@ public static class EndpointExtensions
         => RequestBinder.MergeRouteParameters(request, context);
 
     internal static async Task<TRequest> BindFromFormAsync<TRequest>(this EndpointBase endpoint, HttpContext context)
-        => await RequestBinder.BindFromFormAsync<TRequest>(context, endpoint.GetFormOptions());
+        => await RequestBinder.BindFromFormAsync<TRequest>(context, endpoint.GetFormOptions(), endpoint.GetFileBindingMode());
 }

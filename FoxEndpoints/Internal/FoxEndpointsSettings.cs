@@ -8,12 +8,19 @@ namespace FoxEndpoints.Internal;
 internal static class FoxEndpointsSettings
 {
     private static FormOptions _formOptions = CreateDefaultFormOptions();
+    private static FileBindingMode _fileBindingMode = FileBindingMode.Buffered;
 
     internal static FormOptions FormOptions => _formOptions;
+    internal static FileBindingMode FileBindingMode => _fileBindingMode;
 
     internal static void ConfigureFormOptions(FormOptions options)
     {
         _formOptions = options ?? throw new ArgumentNullException(nameof(options));
+    }
+
+    internal static void SetFileBindingMode(FileBindingMode mode)
+    {
+        _fileBindingMode = mode;
     }
 
     private static FormOptions CreateDefaultFormOptions()
