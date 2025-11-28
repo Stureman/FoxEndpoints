@@ -1,4 +1,4 @@
-namespace FoxEndpoints;
+namespace FoxEndpoints.Binding.Attributes;
 
 /// <summary>
 /// Restricts FoxEndpoints binding to the specified property names.

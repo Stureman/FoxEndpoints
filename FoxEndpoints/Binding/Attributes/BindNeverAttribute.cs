@@ -1,4 +1,4 @@
-namespace FoxEndpoints;
+namespace FoxEndpoints.Binding.Attributes;
 
 /// <summary>
 /// Prevents FoxEndpoints from binding to the decorated property.

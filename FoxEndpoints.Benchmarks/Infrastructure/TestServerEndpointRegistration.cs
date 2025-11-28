@@ -1,7 +1,5 @@
 using System.Reflection;
-using FoxEndpoints;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using FoxEndpoints.Abstractions;
 
 namespace FoxEndpoints.Benchmarks.Infrastructure;
 
@@ -79,7 +77,7 @@ public static class TestServerEndpointRegistration
                 endpoints.MapMethods(route, new[] { method }, async (HttpContext ctx, CancellationToken ct) =>
                 {
                     var ep = Activator.CreateInstance(endpointType);
-                    if (ep == null) return Results.Problem("Failed to create endpoint instance");
+                    if (ep == null) return Microsoft.AspNetCore.Http.Results.Problem("Failed to create endpoint instance");
 
                     httpContextProp?.SetValue(ep, ctx);
 
@@ -96,10 +94,10 @@ public static class TestServerEndpointRegistration
                     }
                     catch (Exception ex)
                     {
-                        return Results.Problem($"Endpoint execution failed: {ex.Message}");
+                        return Microsoft.AspNetCore.Http.Results.Problem($"Endpoint execution failed: {ex.Message}");
                     }
 
-                    return Results.Problem("Invalid endpoint response");
+                    return Microsoft.AspNetCore.Http.Results.Problem("Invalid endpoint response");
                 });
             }
             else // POST, PUT, PATCH
@@ -107,14 +105,14 @@ public static class TestServerEndpointRegistration
                 endpoints.MapMethods(route, new[] { method }, async (HttpContext ctx, CancellationToken ct) =>
                 {
                     var ep = Activator.CreateInstance(endpointType);
-                    if (ep == null) return Results.Problem("Failed to create endpoint instance");
+                    if (ep == null) return Microsoft.AspNetCore.Http.Results.Problem("Failed to create endpoint instance");
 
                     httpContextProp?.SetValue(ep, ctx);
 
                     try
                     {
                         var request = await ctx.Request.ReadFromJsonAsync(requestType, ct);
-                        if (request == null) return Results.BadRequest("Invalid request body");
+                        if (request == null) return Microsoft.AspNetCore.Http.Results.Problem("Invalid request body");
 
                         var result = handleAsyncMethod.Invoke(ep, new[] { request, ct });
                         
@@ -125,10 +123,10 @@ public static class TestServerEndpointRegistration
                     }
                     catch (Exception ex)
                     {
-                        return Results.Problem($"Endpoint execution failed: {ex.Message}");
+                        return Microsoft.AspNetCore.Http.Results.Problem($"Endpoint execution failed: {ex.Message}");
                     }
 
-                    return Results.Problem("Invalid endpoint response");
+                    return Microsoft.AspNetCore.Http.Results.Problem("Invalid endpoint response");
                 });
             }
         }

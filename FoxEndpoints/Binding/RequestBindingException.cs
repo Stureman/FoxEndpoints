@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace FoxEndpoints.Internal;
+namespace FoxEndpoints.Binding;
 
 /// <summary>
 /// Signals that binding a request failed and translates to a 400 response.

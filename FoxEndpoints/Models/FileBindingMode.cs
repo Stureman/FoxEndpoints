@@ -1,4 +1,4 @@
-namespace FoxEndpoints;
+namespace FoxEndpoints.Models;
 
 public enum FileBindingMode
 {

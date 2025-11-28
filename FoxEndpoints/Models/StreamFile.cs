@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http;
 
-namespace FoxEndpoints;
+namespace FoxEndpoints.Models;
 
 /// <summary>
 /// Represents a streamed multipart file section. The <see cref="Body"/> stream must be disposed by the consumer.

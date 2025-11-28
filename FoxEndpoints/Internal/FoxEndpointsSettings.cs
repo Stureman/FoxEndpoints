@@ -1,11 +1,9 @@
+using FoxEndpoints.Models;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace FoxEndpoints.Internal;
 
-/// <summary>
-/// Stores runtime configuration shared across FoxEndpoints components.
-/// </summary>
-internal static class FoxEndpointsSettings
+internal class FoxEndpointsSettings
 {
     private static FormOptions _formOptions = CreateDefaultFormOptions();
     private static FileBindingMode _fileBindingMode = FileBindingMode.Buffered;
