@@ -1,549 +1,222 @@
 # FoxEndpoints
 
-A lightweight, minimal API endpoint framework for ASP.NET Core inspired by FastEndpoints. Supports .NET 9 and .NET 10 with natural IResult-based response handling, optional global authorization, and full API versioning support.
+FoxEndpoints is a lightweight layer on top of ASP.NET Core minimal APIs inspired by FastEndpoints. It keeps the mental model of "one class = one endpoint" while staying close to the built-in primitives so it remains fast, dependency-light (Microsoft packages only), and predictable. Validation, formatting, and domain rules are intentionally left to the consumer for maximum control.
 
-## Features
+## Design Goals
+- Minimal abstraction: re-use ASP.NET Core hosting, routing, DI, and results without introducing controllers.
+- No third-party runtime dependencies: only Microsoft.AspNetCore.App framework reference plus `Asp.Versioning.Http` from the dotnet org for optional versioning support.
+- Consumer-managed validation and behavioral policies; the library only handles binding plus basic 400 responses for malformed payloads.
+- Faster startup and execution than MVC controllers by emitting delegates directly and caching activators per endpoint type.
+- First-class support for typed requests/responses, without forcing FluentValidation/FastEndpoints pipelines.
 
-- ✨ Clean endpoint definition with minimal boilerplate
-- 🎯 Support for endpoints with and without request/response types
-- 💉 Built-in dependency injection support
-- 🔒 Optional global authorization
-- 📌 Type-safe routing and parameter binding
-- 📁 **Automatic multipart/form-data and file upload support**
-- 🔢 **Full API versioning support** (query string and headers)
-- 🚀 Works with .NET 9.0 and .NET 10.0
-- 📦 Zero configuration required
-
-## Installation
-
-```bash
-dotnet add package FoxEndpoints
-```
-
-Or via NuGet Package Manager:
-```
-Install-Package FoxEndpoints
-```
+## Feature Highlights
+- Four base classes cover the common use cases: `Endpoint<TRequest, TResponse>`, `EndpointWithoutRequest<TResponse>`, `EndpointWithoutResponse<TRequest>`, and `Endpoint`.
+- Automatic discovery of endpoint classes in the entry assembly via `app.UseFoxEndpoints()`.
+- Constructor injection works out of the box; endpoints are resolved in scoped DI wrappers so scoped services behave like regular ASP.NET Core handlers.
+- Request binding merges route values, query parameters, JSON bodies, and (optionally) multipart form data into strongly typed records/classes.
+- File uploads can be buffered or streamed using `IFormFile`, `IFormFileCollection`, or the provided `StreamFile` abstraction.
+- Optional global authorization, shared form options, and default file binding modes can be configured once per `WebApplication`.
+- API versioning integrates with `Asp.Versioning` attributes and readers when you opt into `AddApiVersioning()` in your host.
 
 ## Quick Start
 
-### 1. Register FoxEndpoints in Program.cs
-
+### Program setup
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuthorization();
+// Optional: builder.Services.AddApiVersioning(...).AddApiExplorer(...);
 
 var app = builder.Build();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Register FoxEndpoints (automatically discovers all endpoints)
-app.UseFoxEndpoints();
+app.UseFoxEndpoints(); // discovers endpoints from the entry assembly
 
 app.Run();
 ```
 
-### 2. Create Your First Endpoint
-
+### Basic endpoint
 ```csharp
-public class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
+public sealed class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
 {
     public override void Configure()
     {
         Get("/users/{id}")
             .WithName("GetUser")
-            .WithTags("Users");
+            .WithTags("Users")
+            .RequireAuthorization();
     }
 
     public override async Task<IResult> HandleAsync(GetUserRequest request, CancellationToken ct)
     {
-        var response = new GetUserResponse
-        {
-            Id = request.Id,
-            Name = "John Doe",
-            Email = "john.doe@example.com"
-        };
-        
-        return await Send.OkAsync(response);
+        var user = await _repository.GetAsync(request.Id, ct);
+        return await Send.OkAsync(new GetUserResponse(user.Id, user.Name));
     }
+
+    private readonly IUserRepository _repository;
+    public GetUserEndpoint(IUserRepository repository) => _repository = repository;
 }
 
-public record GetUserRequest
-{
-    public int Id { get; init; }
-}
-
-public record GetUserResponse
-{
-    public int Id { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string Email { get; init; } = string.Empty;
-}
+public sealed record GetUserRequest(int Id);
+public sealed record GetUserResponse(int Id, string Name);
 ```
+Each endpoint class must select exactly one HTTP verb helper (`Get`, `Post`, `Put`, `Patch`, or `Delete`). Create separate endpoint classes when you need multiple verbs for the same resource.
 
-That's it! FoxEndpoints will automatically discover and register all endpoints in your application.
+## Endpoint Variants
+- `Endpoint<TRequest, TResponse>`: route + request body/params + response payload.
+- `EndpointWithoutRequest<TResponse>`: ex: listings without parameters.
+- `EndpointWithoutResponse<TRequest>`: commands that return `204 No Content` or similar.
+- `Endpoint`: health checks, or triggers that don't require a request body or response payload.
 
-## Usage
+All base classes expose a typed `Send` helper for creating `IResult` instances without repeatedly calling `Results.*`.
 
-### Endpoint Configuration
+## Request Binding & Validation
+- Route values and query parameters are always inspected for matching property names (case-insensitive).
+- For `POST`, `PUT`, and `PATCH` requests the JSON body is bound first via `[FromBody]`, then route values are merged into default-valued properties.
+- For multipart form data, the binder inspects form fields plus files and honours custom `FormOptions` if provided.
+- Use `[BindAttribute("PropA", "PropB")]` on the request type to create an allowlist of bindable properties.
+- Use `[BindNever]` on individual properties to exclude them from binding.
+- Validation frameworks (FluentValidation, DataAnnotations, custom logic, etc.) are not integrated. Perform validation inside `HandleAsync` and return the appropriate `Send.BadRequestAsync(...)`/`Send.Problem(...)` response yourself.
 
-FoxEndpoints supports various endpoint configurations:
-
-#### HTTP Methods
+## File Uploads
+When a request type exposes `IFormFile`, `List<IFormFile>`, `IFormFileCollection`, or `StreamFile`, FoxEndpoints automatically switches the binder to form mode.
 
 ```csharp
-public override void Configure()
+public sealed record UploadDocumentRequest
 {
-    Get("/users/{id}");      // GET request
-    Post("/users");          // POST request
-    Put("/users/{id}");      // PUT request
-    Patch("/users/{id}");    // PATCH request
-    Delete("/users/{id}");   // DELETE request
+    public Guid Id { get; init; }
+    public IFormFile? File { get; init; }
 }
-```
 
-#### Endpoint Metadata
-
-```csharp
-public override void Configure()
-{
-    Get("/users/{id}")
-        .WithName("GetUser")                    // OpenAPI operation ID
-        .WithTags("Users")                      // OpenAPI tags
-        .Produces<GetUserResponse>(200)         // Response type
-        .AllowAnonymous();                      // Allow anonymous access
-}
-```
-
-### Basic Endpoint
-
-```csharp
-public class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
+public sealed class UploadDocument : EndpointWithoutResponse<UploadDocumentRequest>
 {
     public override void Configure()
     {
-        Get("/users/{id}");
+        Post("/estimates/{EstimateId}/documents")
+            .AllowFileUploads()         // Adds Accepts("multipart/form-data") metadata
+            .WithFormOptions(new FormOptions { MultipartBodyLengthLimit = 50 * 1024 * 1024 })
+            .WithTags("Documents");
     }
 
-    public override async Task<IResult> HandleAsync(GetUserRequest request, CancellationToken ct)
+    public override async Task<IResult> HandleAsync(UploadDocumentRequest request, CancellationToken ct)
     {
-        // Your endpoint logic here
-        var response = new GetUserResponse
-        {
-            Id = request.Id,
-            Name = "John Doe",
-            Email = "john.doe@example.com"
-        };
-        
-        return await Send.OkAsync(response);
-    }
-}
-```
+        if (request.File is null)
+            return await Send.BadRequestAsync("File is required");
 
-### Early Return with Validation
-
-```csharp
-public override async Task<IResult> HandleAsync(CreateUserRequest request, CancellationToken ct)
-{
-    // Validation with natural early return
-    if (string.IsNullOrWhiteSpace(request.Name))
-    {
-        return await Send.BadRequestAsync("Name is required");
-    }
-
-    var response = CreateUser(request);
-    return await Send.CreatedAsync(response);
-}
-```
-
-### Endpoint Without Request
-
-```csharp
-public class GetHealthEndpoint : EndpointWithoutRequest<HealthResponse>
-{
-    public override void Configure()
-    {
-        Get("/health");
-    }
-
-    public override async Task<IResult> HandleAsync(CancellationToken ct)
-    {
-        var response = new HealthResponse { Status = "Healthy" };
-        return await Send.OkAsync(response);
-    }
-}
-```
-
-### Endpoint Without Response
-
-```csharp
-public class DeleteUserEndpoint : EndpointWithoutResponse<DeleteUserRequest>
-{
-    public override void Configure()
-    {
-        Delete("/users/{id}");
-    }
-
-    public override async Task<IResult> HandleAsync(DeleteUserRequest request, CancellationToken ct)
-    {
-        // Delete user logic
+        await _storage.SaveAsync(request.Id, request.File, ct);
         return await Send.NoContentAsync();
     }
+
+    private readonly IDocumentStorage _storage;
+    public UploadDocument(IDocumentStorage storage) => _storage = storage;
 }
 ```
 
-## API Versioning
+Additional options:
+- `.AllowFileUploads()` -> Adds `Accepts("multipart/form-data")` metadata only.
+- `.DisableAntiforgery()` -> Call explicitly when you serve cookie-authenticated clients that post form data.
+- `.WithFormOptions(FormOptions)` -> Override multipart thresholds per endpoint.
+- `app.UseFoxEndpoints(c => c.UseFileBindingMode(FileBindingMode.Stream))` -> Switch the default to streaming `StreamFile` payloads.
 
-FoxEndpoints has built-in support for API versioning using query strings and headers.
-
-### Setup
-
-Add the API versioning packages to your project:
-
-```bash
-dotnet add package Asp.Versioning.Http
-dotnet add package Asp.Versioning.Mvc.ApiExplorer
-```
-
-Configure versioning in `Program.cs`:
+## API Versioning (Optional)
+The package references `Asp.Versioning.Http`, so you only need to opt into the services and add attributes.
 
 ```csharp
-using Asp.Versioning;
+builder.Services
+    .AddApiVersioning(o =>
+    {
+        o.DefaultApiVersion = new ApiVersion(1, 0);
+        o.AssumeDefaultVersionWhenUnspecified = true;
+        o.ReportApiVersions = true;
+        o.ApiVersionReader = ApiVersionReader.Combine(
+            new QueryStringApiVersionReader("api-version"),
+            new HeaderApiVersionReader("X-Api-Version"));
+    })
+    .AddApiExplorer(o =>
+    {
+        o.GroupNameFormat = "'v'VVV";
+        o.SubstituteApiVersionInUrl = true;
+    });
+```
 
-var builder = WebApplication.CreateBuilder(args);
+Annotate endpoints with `[ApiVersion("2024-10-01"]` (semantic or date-based) and optionally `[ApiExplorerSettings(GroupName = "v2024-10-01")]`. `UseFoxEndpoints` will:
+- Build a version set from all discovered `ApiVersion` attributes.
+- Map each endpoint to its declared versions.
+- Attach the version set to the underlying route builder.
 
-builder.Services.AddApiVersioning(options =>
+Consumers are responsible for deciding how clients specify the version (query string, header, etc.) by configuring the `ApiVersionReader`.
+
+## Authorization
+FoxEndpoints supports both global and endpoint-level authorization.
+
+### Endpoint-Level Authorization
+Use `.RequireAuthorization()` to require authentication, or pass policy/role names for fine-grained control:
+
+```csharp
+public override void Configure()
 {
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-    options.ApiVersionReader = ApiVersionReader.Combine(
-        new QueryStringApiVersionReader("api-version"),
-        new HeaderApiVersionReader("X-Api-Version")
-    );
-}).AddApiExplorer(options =>
+    Post("/admin/users")
+        .RequireAuthorization("AdminPolicy")     // Single policy
+        .WithTags("Admin");
+        
+    // Or multiple policies
+    Put("/sensitive-data/{id}")
+        .RequireAuthorization("DataAccess", "SeniorRole")
+        .WithTags("Data");
+}
+```
+
+Policies must be registered in `Program.cs`:
+```csharp
+builder.Services.AddAuthorization(options =>
 {
-    options.GroupNameFormat = "'v'VVV";
-    options.SubstituteApiVersionInUrl = true;
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("DataAccess", policy => policy.RequireClaim("DataAccess", "Read"));
 });
-
-var app = builder.Build();
-
-app.UseFoxEndpoints();
-app.Run();
 ```
 
-### Using Versioned Endpoints
-
-Apply version attributes to your endpoints:
+### Global Authorization
+Apply authorization to all endpoints by default, allowing individual endpoints to opt out:
 
 ```csharp
-[ApiVersion("1.0")]
-[ApiExplorerSettings(GroupName = "v1")]
-public class GetProductsV1Endpoint : Endpoint<GetProductsRequest, GetProductsV1Response>
+app.UseFoxEndpoints(config =>
 {
-    public override void Configure()
-    {
-        Get("/api/products")
-            .WithName("GetProductsV1")
-            .WithTags("Products");
-    }
-
-    public override async Task<IResult> HandleAsync(GetProductsRequest request, CancellationToken ct)
-    {
-        var response = new GetProductsV1Response
-        {
-            Products = GetProducts(),
-            Version = "1.0"
-        };
-        return await Send.OkAsync(response);
-    }
-}
-
-[ApiVersion("2.0")]
-[ApiExplorerSettings(GroupName = "v2")]
-public class GetProductsV2Endpoint : Endpoint<GetProductsRequest, GetProductsV2Response>
-{
-    public override void Configure()
-    {
-        Get("/api/products")  // Same route, different version
-            .WithName("GetProductsV2")
-            .WithTags("Products");
-    }
-
-    public override async Task<IResult> HandleAsync(GetProductsRequest request, CancellationToken ct)
-    {
-        var response = new GetProductsV2Response
-        {
-            Products = GetEnhancedProducts(),
-            Version = "2.0",
-            TotalCount = 10
-        };
-        return await Send.OkAsync(response);
-    }
-}
+    config.RequireAuthorization();  // All endpoints require auth by default
+});
 ```
 
-### Calling Versioned Endpoints
-
-```http
-# Query string versioning
-GET /api/products?api-version=1.0
-GET /api/products?api-version=2.0
-
-# Header versioning
-GET /api/products
-X-Api-Version: 1.0
-
-# Default version (when not specified)
-GET /api/products  # Uses version 1.0
-```
-
-FoxEndpoints automatically:
-- Discovers all `[ApiVersion]` attributes
-- Creates an `ApiVersionSet` with all discovered versions
-- Maps each endpoint to its specific version(s)
-- Enables query string and header versioning
-- Returns 400 Bad Request for invalid or missing versions (when required)
-
-## Global Authorization
-
-Require authorization for all endpoints by default using a configuration action:
-
-```csharp
-app.UseFoxEndpoints(c => c.RequireAuthorization());
-```
-
-Individual endpoints can opt-out using `.AllowAnonymous()`:
-
+Endpoints can opt out using `.AllowAnonymous()`:
 ```csharp
 public override void Configure()
 {
     Get("/health")
-        .AllowAnonymous();
+        .AllowAnonymous();  // Public endpoint
 }
 ```
 
-## Advanced Features
-
-### Dependency Injection
-
-FoxEndpoints automatically resolves dependencies through constructor injection:
-
+## Global Configuration Hooks
 ```csharp
-public class CreateUserEndpoint : Endpoint<CreateUserRequest, CreateUserResponse>
+app.UseFoxEndpoints(config =>
 {
-    private readonly IUserService _userService;
-    private readonly ILogger<CreateUserEndpoint> _logger;
-
-    public CreateUserEndpoint(IUserService userService, ILogger<CreateUserEndpoint> logger)
-    {
-        _userService = userService;
-        _logger = logger;
-    }
-
-    public override void Configure()
-    {
-        Post("/users");
-    }
-
-    public override async Task<IResult> HandleAsync(CreateUserRequest request, CancellationToken ct)
-    {
-        _logger.LogInformation("Creating user: {Name}", request.Name);
-        var user = await _userService.CreateAsync(request, ct);
-        return await Send.CreatedAsync(user);
-    }
-}
+    config.RequireAuthorization();                      // Force auth unless endpoints call .AllowAnonymous()
+    config.ConfigureFormOptions(o => { ... });           // Global multipart settings
+    config.UseFileBindingMode(FileBindingMode.Stream);   // Default to streaming uploads
+});
 ```
+`UseFoxEndpoints` returns the same `WebApplication` instance, so you can chain additional middleware registrations if desired.
 
-### Request Binding
-
-FoxEndpoints automatically binds data from multiple sources:
-
-```csharp
-public record UpdateUserRequest
-{
-    public int Id { get; init; }              // From route: /users/{id}
-    public string Name { get; init; }         // From JSON body
-    public string Email { get; init; }        // From JSON body
-    public bool? IsActive { get; init; }      // From query string (optional)
-}
-```
-
-Request data is merged from:
-1. Route parameters (`{id}`, `{name}`, etc.)
-2. Query string parameters
-3. JSON request body
-4. Form fields (`multipart/form-data`) when `AllowFileUploads()` or `AcceptsFormData()` is used
-
-> ⚠️ **Validate every request DTO.** FoxEndpoints will populate *all* public setters it can match in the incoming payload (route, query, body, form). This is powerful but it also means "mass assignment" is possible: a malicious client can supply values for properties that you did not intend to expose (for example, `Role`, `IsAdmin`, or even `Id`). Always enforce business rules inside `HandleAsync` (or a custom validator) before persisting changes:
-
-```csharp
-public override async Task<IResult> HandleAsync(UpdateUserRequest request, CancellationToken ct)
-{
-    if (request.Id != RouteId) // trust the route, not the body
-        return await Send.BadRequestAsync("Route and payload IDs must match.");
-
-    if (!User.IsInRole("Admin") && request.Role != CurrentRole)
-        return await Send.ForbiddenAsync("Only admins can change roles.");
-
-    // proceed once invariants hold
-}
-```
-
-If you prefer tighter control, you can still use native ASP.NET Core binding attributes such as `[FromBody]`, `[FromRoute]`, or `[BindNever]` on individual properties/parameters—the FoxEndpoints binder respects them. Regardless of the approach, keep DTOs minimal and validate them explicitly.
-
-### File Uploads (Multipart Form Data)
-
-FoxEndpoints automatically supports file uploads with multipart/form-data requests. Simply include `IFormFile` or `List<IFormFile>` properties in your request model.
-
-**Security Note:** Any endpoint that accepts `multipart/form-data` will have antiforgery validation automatically disabled. For form posts that do not involve file uploads, it is recommended to manually enable and validate antiforgery tokens using standard ASP.NET Core mechanisms.
-
-```csharp
-public class UploadImageEndpoint : EndpointWithoutResponse<UploadImageRequest>
-{
-    public override void Configure()
-    {
-        Post("/images/upload")
-            .WithName("UploadImage")
-            .WithTags("Images")
-            .Produces(StatusCodes.Status204NoContent);
-    }
-
-    public override async Task<IResult> HandleAsync(UploadImageRequest request, CancellationToken ct)
-    {
-        if (request.File == null || request.File.Length == 0)
-        {
-            return await Send.BadRequestAsync("File is required");
-        }
-
-        // Process the uploaded file
-        using var stream = request.File.OpenReadStream();
-        // ... save file, process, etc.
-
-        return await Send.NoContentAsync();
-    }
-}
-
-public record UploadImageRequest
-{
-    [FromForm]
-    public IFormFile? File { get; init; }
-    
-    [FromForm]
-    public string? Description { get; init; }
-}
-```
-
-#### File Upload with Route Parameters
-
-Combine file uploads with route parameters seamlessly:
-
-```csharp
-public class AddImageToMomentEndpoint : EndpointWithoutResponse<AddImageRequest>
-{
-    public override void Configure()
-    {
-        Post("/image/moment/{MomentId}")
-            .WithName("AddImage")
-            .WithTags("Images")
-            .Produces(StatusCodes.Status204NoContent);
-    }
-
-    public override async Task<IResult> HandleAsync(AddImageRequest request, CancellationToken ct)
-    {
-        // Both MomentId from route and File from form are automatically bound
-        // Process file for the specific moment...
-        return await Send.NoContentAsync();
-    }
-}
-
-public record AddImageRequest
-{
-    [FromRoute]
-    public Guid MomentId { get; init; }
-
-    [FromForm]
-    public IFormFile? File { get; init; }
-}
-```
-
-#### Multiple File Uploads
-
-Upload multiple files using `List<IFormFile>`:
-
-```csharp
-public record UploadMultipleFilesRequest
-{
-    [FromForm]
-    public List<IFormFile>? Files { get; init; }
-    
-    [FromForm]
-    public string? Category { get; init; }
-}
-```
-
-#### Explicit Configuration
-
-For additional control, use the fluent API:
-
-```csharp
-public override void Configure()
-{
-    Post("/files/upload")
-        .AllowFileUploads()  // Adds multipart/form-data support + disables antiforgery
-        .WithName("UploadFiles")
-        .WithTags("Files");
-}
-```
-
-Available methods:
-- `.AcceptsFormData()` - Accepts multipart/form-data content type
-- `.DisableAntiforgery()` - Disables antiforgery validation
-- `.AllowFileUploads()` - Convenience method combining both above
-
-**Note:** FoxEndpoints automatically detects `IFormFile` properties and configures endpoints appropriately, so explicit configuration is usually unnecessary.
+## Known Behaviors & Limitations
+- **One HTTP verb per endpoint class.** The last call to `Get/Post/Put/Patch/Delete` wins, so create one class per verb/route.
+- **Only entry-assembly endpoints are discovered.** If you place endpoints in a referenced class library, make sure that library is the application entry assembly or load those endpoints into the entry assembly.
+- **No automatic validation pipeline.** Consumers should validate inside `HandleAsync` or plug in their own middleware/decorators.
+- **No automatic filters or behaviors.** Cross-cutting concerns should be handled via standard ASP.NET Core middleware or shared services.
 
 ## Why FoxEndpoints?
+- Familiar FastEndpoints ergonomics without adopting a completely new runtime.
+- Works inside existing minimal API projects; keeps middleware, filters, and hosting exactly as before.
+- Encourages small, focused endpoint classes that are easy to test and reason about.
+- Keeps controllers out of the hot path for scenarios where latency matters.
 
-- **Simple**: Minimal boilerplate, clean syntax
-- **Fast**: Optimized endpoint registration with cached factories
-- **Flexible**: Support for various endpoint patterns
-- **Type-safe**: Strong typing for requests and responses
-- **Feature-rich**: Built-in versioning, authorization, DI support
-- **Familiar**: Similar to FastEndpoints but lighter weight
-- **Modern**: Uses latest .NET features and minimal APIs
-
-## Benchmarks
-
-Performance benchmarks comparing FoxEndpoints to traditional MVC controllers are available in the `FoxEndpoints.Benchmarks` project.
-
-To run the benchmarks:
-
-```bash
-cd FoxEndpoints.Benchmarks
-./run-benchmarks.sh
-```
-
-Or run specific benchmarks:
-
-```bash
-./run-benchmarks.sh SimpleGetBenchmark
-./run-benchmarks.sh RouteParameterBenchmark
-./run-benchmarks.sh JsonPostBenchmark
-./run-benchmarks.sh MixedOperationsBenchmark
-```
-
-The benchmarks measure:
-- **Routing overhead** - Simple GET requests
-- **Parameter binding** - Route parameter extraction
-- **JSON serialization** - POST request handling
-- **Mixed operations** - Realistic API workflows
-
-Results are saved to `BenchmarkDotNet.Artifacts/results/` with detailed metrics including execution time, memory allocation, and performance rankings.
-
-## License
-
-MIT
+## You're more than welcome to contribute or create an issue!

@@ -74,7 +74,7 @@ app.UseAuthorization();
 app.UseFoxEndpoints();
 
 // Option 2: Global authorization (ALL endpoints require auth - uncomment to enable)
-// app.UseFoxEndpoints().RequireAuthorization();
+// app.UseFoxEndpoints(c => c.RequireAuthorization());
 
 var summaries = new[]
 {

@@ -1,3 +1,4 @@
+using FoxEndpoints.Abstractions;
 using FoxEndpoints.Benchmarks.Models;
 
 namespace FoxEndpoints.Benchmarks.Endpoints;

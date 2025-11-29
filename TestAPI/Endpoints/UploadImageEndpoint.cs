@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace TestAPI.Endpoints;
