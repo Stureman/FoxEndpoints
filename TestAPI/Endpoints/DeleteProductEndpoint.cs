@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 
 namespace TestAPI.Endpoints;
 
@@ -29,7 +30,7 @@ public class DeleteProductEndpoint : Endpoint<DeleteProductRequest, DeleteProduc
             DeletedAt = DateTime.UtcNow
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

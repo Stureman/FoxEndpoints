@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace TestAPI.Endpoints;
@@ -34,7 +35,7 @@ public class UploadImageEndpoint : EndpointWithoutResponse<UploadImageRequest>
         // Validation
         if (request.File == null || request.File.Length == 0)
         {
-            return await Send.BadRequestAsync("File is required");
+            return await Send.BadRequest("File is required");
         }
 
         // Check file extension
@@ -43,14 +44,14 @@ public class UploadImageEndpoint : EndpointWithoutResponse<UploadImageRequest>
         
         if (!allowedExtensions.Contains(extension))
         {
-            return await Send.BadRequestAsync($"Invalid file type. Allowed types: {string.Join(", ", allowedExtensions)}");
+            return await Send.BadRequest($"Invalid file type. Allowed types: {string.Join(", ", allowedExtensions)}");
         }
 
         // Check file size (max 5MB)
         const long maxFileSize = 5 * 1024 * 1024;
         if (request.File.Length > maxFileSize)
         {
-            return await Send.BadRequestAsync("File size exceeds 5MB limit");
+            return await Send.BadRequest("File size exceeds 5MB limit");
         }
 
         // In a real application, you would save the file to disk or cloud storage
@@ -62,7 +63,7 @@ public class UploadImageEndpoint : EndpointWithoutResponse<UploadImageRequest>
             request.File.Length,
             request.Description ?? "(no description)");
 
-        return await Send.NoContentAsync();
+        return await Send.NoContent();
     }
 }
 

@@ -1,3 +1,4 @@
+using FoxEndpoints.Abstractions;
 using FoxEndpoints.Benchmarks.Models;
 
 namespace FoxEndpoints.Benchmarks.Endpoints;
@@ -22,6 +23,6 @@ public class CreateProductFoxEndpoint : Endpoint<CreateProductRequest, CreatePro
             Success = true
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }

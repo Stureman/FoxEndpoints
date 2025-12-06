@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 
 namespace TestAPI.Endpoints;
 
@@ -43,7 +44,7 @@ public class UpdateUserEndpoint : Endpoint<UpdateUserRequest, UpdateUserResponse
             Message = $"User {request.Id} updated successfully!"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

@@ -1,3 +1,4 @@
+using FoxEndpoints.Abstractions;
 using FoxEndpoints.Benchmarks.Models;
 
 namespace FoxEndpoints.Benchmarks.Endpoints;
@@ -29,7 +30,7 @@ public class GetProductsFoxEndpoint : Endpoint<EmptyRequest, ProductsResponse>
             Version = "1.0"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

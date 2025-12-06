@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace TestAPI.Endpoints;
@@ -34,12 +35,12 @@ public class UploadMultipleFilesEndpoint : EndpointWithoutResponse<UploadMultipl
         // Validation
         if (request.Files == null || request.Files.Count == 0)
         {
-            return await Send.BadRequestAsync("At least one file is required");
+            return await Send.BadRequest("At least one file is required");
         }
 
         if (request.Files.Count > 10)
         {
-            return await Send.BadRequestAsync("Maximum 10 files allowed");
+            return await Send.BadRequest("Maximum 10 files allowed");
         }
 
         // Process files
@@ -47,7 +48,7 @@ public class UploadMultipleFilesEndpoint : EndpointWithoutResponse<UploadMultipl
         {
             if (file.Length == 0)
             {
-                return await Send.BadRequestAsync($"File {file.FileName} is empty");
+                return await Send.BadRequest($"File {file.FileName} is empty");
             }
 
             _logger.LogInformation(
@@ -59,7 +60,7 @@ public class UploadMultipleFilesEndpoint : EndpointWithoutResponse<UploadMultipl
 
         _logger.LogInformation("Successfully processed {Count} files", request.Files.Count);
 
-        return await Send.NoContentAsync();
+        return await Send.NoContent();
     }
 }
 

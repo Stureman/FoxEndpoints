@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace TestAPI.Endpoints;
@@ -37,7 +38,7 @@ public class GetProductsV1Endpoint : Endpoint<GetProductsRequest, GetProductsRes
             Version = "1.0"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 
@@ -76,7 +77,7 @@ public class GetProductsV2Endpoint : Endpoint<GetProductsRequest, GetProductsV2R
             Timestamp = DateTime.UtcNow
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 
 namespace TestAPI.Endpoints;
 
@@ -41,7 +42,7 @@ public class GetSecureDataEndpoint : Endpoint<GetSecureDataRequest, GetSecureDat
             AccessedBy = HttpContext.User.Identity?.Name ?? "Anonymous"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

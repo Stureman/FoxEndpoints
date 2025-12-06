@@ -298,3 +298,16 @@ Documents
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--
 
 ###
+
+### Upload Video via Streaming Endpoint
+POST {{TestAPI_HostAddress}}/videos/550e8400-e29b-41d4-a716-446655440000
+Content-Type: multipart/form-data; boundary=----StreamUploadBoundary
+
+------StreamUploadBoundary
+Content-Disposition: form-data; name="video"; filename="sample-video.mp4"
+Content-Type: video/mp4
+
+< ./sample-video.mp4
+------StreamUploadBoundary--
+
+###

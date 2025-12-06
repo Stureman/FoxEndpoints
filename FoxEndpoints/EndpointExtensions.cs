@@ -1,4 +1,7 @@
-using FoxEndpoints.Internal;
+using FoxEndpoints.Abstractions;
+using FoxEndpoints.Binding;
+using FoxEndpoints.Configuration;
+using FoxEndpoints.Internal.Factory;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
@@ -16,7 +19,8 @@ public static class EndpointExtensions
     /// <param name="app">The <see cref="WebApplication"/> to add the endpoints to.</param>
     /// <param name="configure">An optional action to configure global endpoint settings.</param>
     /// <returns>The <see cref="WebApplication"/> so that additional calls can be chained.</returns>
-    public static WebApplication UseFoxEndpoints(this WebApplication app, Action<FoxEndpointsBuilder>? configure = null)
+    public static WebApplication UseFoxEndpoints(this WebApplication app,
+        Action<FoxEndpointsBuilder>? configure = null)
     {
         var builder = new FoxEndpointsBuilder(app);
         configure?.Invoke(builder);
@@ -29,9 +33,11 @@ public static class EndpointExtensions
     internal static TRequest BindFromHttpContext<TRequest>(this EndpointBase endpoint, HttpContext context)
         => RequestBinder.BindFromHttpContext<TRequest>(context);
 
-    internal static TRequest MergeRouteParameters<TRequest>(this EndpointBase endpoint, TRequest request, HttpContext context)
+    internal static TRequest MergeRouteParameters<TRequest>(this EndpointBase endpoint, TRequest request,
+        HttpContext context)
         => RequestBinder.MergeRouteParameters(request, context);
 
     internal static async Task<TRequest> BindFromFormAsync<TRequest>(this EndpointBase endpoint, HttpContext context)
-        => await RequestBinder.BindFromFormAsync<TRequest>(context, endpoint.GetFormOptions());
+        => await RequestBinder.BindFromFormAsync<TRequest>(context, endpoint.GetFormOptions(),
+            endpoint.GetFileBindingMode());
 }

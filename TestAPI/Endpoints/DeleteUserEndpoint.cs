@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 
 namespace TestAPI.Endpoints;
 
@@ -29,7 +30,7 @@ public class DeleteUserEndpoint : EndpointWithoutResponse<DeleteUserRequest>
         
         // In a real application, you would delete the user from the database here
         
-        return await Send.NoContentAsync();
+        return await Send.NoContent();
     }
     
 }

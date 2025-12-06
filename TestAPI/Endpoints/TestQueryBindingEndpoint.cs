@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 
 namespace TestAPI.Endpoints;
 
@@ -31,7 +32,7 @@ public class TestQueryBindingEndpoint : Endpoint<QueryBindingRequest, QueryBindi
             Message = "All parameters bound successfully from route and query string!"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

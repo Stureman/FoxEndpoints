@@ -1,4 +1,5 @@
 using FoxEndpoints;
+using FoxEndpoints.Abstractions;
 
 namespace TestAPI.Endpoints;
 
@@ -22,14 +23,14 @@ public class CreateUserEndpoint : Endpoint<CreateUserRequest, CreateUserResponse
             .Produces<CreateUserResponse>(201);
     }
 
-    public override async Task<IResult> HandleAsync(CreateUserRequest request, CancellationToken ct)
+    public override Task<IResult> HandleAsync(CreateUserRequest request, CancellationToken ct)
     {
         _logger.LogInformation("Creating user: {Name}, {Email}", request.Name, request.Email);
 
-        // Example validation with early return
+        // Example validation with early return - no await needed
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return await Send.BadRequestAsync("Name is required");
+            return Send.BadRequest("Name is required");
         }
 
         // Simulate user creation
@@ -45,7 +46,8 @@ public class CreateUserEndpoint : Endpoint<CreateUserRequest, CreateUserResponse
             Message = $"User '{request.Name}' created successfully!"
         };
 
-        return await Send.CreatedAsync(response);
+        // No await needed - no actual async work being done
+        return Send.Created(response);
     }
 }
 
