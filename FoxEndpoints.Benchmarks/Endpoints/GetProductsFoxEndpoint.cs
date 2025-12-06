@@ -30,7 +30,7 @@ public class GetProductsFoxEndpoint : Endpoint<EmptyRequest, ProductsResponse>
             Version = "1.0"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

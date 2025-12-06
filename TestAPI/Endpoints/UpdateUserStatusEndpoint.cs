@@ -34,7 +34,7 @@ public class UpdateUserStatusEndpoint : EndpointWithoutResponse<UpdateUserStatus
 
         // In a real application, you would update the user status in the database here
         
-        return await Send.NoContentAsync();
+        return await Send.NoContent();
     }
 }
 

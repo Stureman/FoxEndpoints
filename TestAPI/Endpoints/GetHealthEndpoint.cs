@@ -26,7 +26,7 @@ public class GetHealthEndpoint : EndpointWithoutRequest<HealthResponse>
             Version = "1.0.0"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

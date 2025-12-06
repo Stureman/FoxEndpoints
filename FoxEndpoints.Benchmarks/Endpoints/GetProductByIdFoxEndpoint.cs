@@ -29,6 +29,6 @@ public class GetProductByIdFoxEndpoint : Endpoint<GetProductByIdRequest, Product
             Description = "A sample product"
         };
 
-        return await Send.OkAsync(product);
+        return await Send.Ok(product);
     }
 }

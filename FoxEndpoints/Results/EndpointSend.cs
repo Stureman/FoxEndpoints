@@ -18,43 +18,43 @@ public class EndpointSend<TResponse>
 	/// <summary>
 	/// Returns a 200 OK response with the specified response object.
 	/// </summary>
-	public Task<IResult> OkAsync(TResponse response)
+	public Task<IResult> Ok(TResponse response)
 		=> Task.FromResult<IResult>(HttpResults.Ok(response));
 
 	/// <summary>
 	/// Returns a 200 OK response with an empty body.
 	/// </summary>
-	public Task<IResult> OkAsync()
+	public Task<IResult> Ok()
 		=> CachedOkEmpty;
 
 	/// <summary>
 	/// Returns a 201 Created response with the specified response object.
 	/// </summary>
-	public Task<IResult> CreatedAsync(TResponse response)
+	public Task<IResult> Created(TResponse response)
 		=> Task.FromResult<IResult>(HttpResults.Created(string.Empty, response));
 
 	/// <summary>
 	/// Returns a 201 Created response with the specified URI and response object.
 	/// </summary>
-	public Task<IResult> CreatedAsync(string uri, TResponse response)
+	public Task<IResult> Created(string uri, TResponse response)
 		=> Task.FromResult<IResult>(HttpResults.Created(uri, response));
 
 	/// <summary>
 	/// Returns a 204 No Content response.
 	/// </summary>
-	public Task<IResult> NoContentAsync()
+	public Task<IResult> NoContent()
 		=> CachedNoContent;
 
 	/// <summary>
 	/// Returns a 404 Not Found response with an empty body.
 	/// </summary>
-	public Task<IResult> NotFoundAsync()
+	public Task<IResult> NotFound()
 		=> CachedNotFoundEmpty;
 
 	/// <summary>
 	/// Returns a 404 Not Found response with a message wrapped in ProblemDetails.
 	/// </summary>
-	public Task<IResult> NotFoundAsync(string message)
+	public Task<IResult> NotFound(string message)
 	{
 		var problemDetails = new ProblemDetails
 		{
@@ -68,7 +68,7 @@ public class EndpointSend<TResponse>
 	/// <summary>
 	/// Returns a 400 Bad Request response with a message wrapped in ProblemDetails.
 	/// </summary>
-	public Task<IResult> BadRequestAsync(string message)
+	public Task<IResult> BadRequest(string message)
 	{
 		var problemDetails = new ProblemDetails
 		{
@@ -82,19 +82,19 @@ public class EndpointSend<TResponse>
 	/// <summary>
 	/// Returns a 400 Bad Request response with custom ProblemDetails.
 	/// </summary>
-	public Task<IResult> BadRequestAsync(ProblemDetails problemDetails)
+	public Task<IResult> BadRequest(ProblemDetails problemDetails)
 		=> Task.FromResult<IResult>(HttpResults.BadRequest(problemDetails));
 
 	/// <summary>
 	/// Returns a 401 Unauthorized response.
 	/// </summary>
-	public Task<IResult> UnauthorizedAsync()
+	public Task<IResult> Unauthorized()
 		=> CachedUnauthorized;
 
 	/// <summary>
 	/// Returns a 401 Unauthorized response with a message wrapped in ProblemDetails.
 	/// </summary>
-	public Task<IResult> UnauthorizedAsync(string message)
+	public Task<IResult> Unauthorized(string message)
 	{
 		var problemDetails = new ProblemDetails
 		{
@@ -108,13 +108,13 @@ public class EndpointSend<TResponse>
 	/// <summary>
 	/// Returns a 403 Forbidden response.
 	/// </summary>
-	public Task<IResult> ForbiddenAsync()
+	public Task<IResult> Forbidden()
 		=> Task.FromResult<IResult>(HttpResults.Forbid());
 
 	/// <summary>
 	/// Returns a 403 Forbidden response with a message wrapped in ProblemDetails.
 	/// </summary>
-	public Task<IResult> ForbiddenAsync(string message)
+	public Task<IResult> Forbidden(string message)
 	{
 		var problemDetails = new ProblemDetails
 		{
@@ -128,7 +128,7 @@ public class EndpointSend<TResponse>
 	/// <summary>
 	/// Returns a 409 Conflict response with a message wrapped in ProblemDetails.
 	/// </summary>
-	public Task<IResult> ConflictAsync(string message)
+	public Task<IResult> Conflict(string message)
 	{
 		var problemDetails = new ProblemDetails
 		{
@@ -142,6 +142,6 @@ public class EndpointSend<TResponse>
 	/// <summary>
 	/// Returns a 200 OK response with a file stream.
 	/// </summary>
-	public Task<IResult> FileAsync(Stream fileStream, string contentType, string? fileName = null)
+	public Task<IResult> File(Stream fileStream, string contentType, string? fileName = null)
 		=> Task.FromResult<IResult>(HttpResults.File(fileStream, contentType, fileName));
 }

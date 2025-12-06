@@ -2,6 +2,8 @@
 
 FoxEndpoints is a lightweight layer on top of ASP.NET Core minimal APIs inspired by FastEndpoints. It keeps the mental model of "one class = one endpoint" while staying close to the built-in primitives so it remains fast, dependency-light (Microsoft packages only), and predictable. Validation, formatting, and domain rules are intentionally left to the consumer for maximum control.
 
+**Supports .NET 9.0 and .NET 10.0**
+
 ## Design Goals
 - Minimal abstraction: re-use ASP.NET Core hosting, routing, DI, and results without introducing controllers.
 - No third-party runtime dependencies: only Microsoft.AspNetCore.App framework reference plus `Asp.Versioning.Http` from the dotnet org for optional versioning support.
@@ -41,6 +43,13 @@ app.Run();
 ```csharp
 public sealed class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
 {
+    private readonly IUserRepository _repository;
+
+    public GetUserEndpoint(IUserRepository repository)
+    {
+        _repository = repository;
+    }
+
     public override void Configure()
     {
         Get("/users/{id}")
@@ -52,11 +61,9 @@ public sealed class GetUserEndpoint : Endpoint<GetUserRequest, GetUserResponse>
     public override async Task<IResult> HandleAsync(GetUserRequest request, CancellationToken ct)
     {
         var user = await _repository.GetAsync(request.Id, ct);
-        return await Send.OkAsync(new GetUserResponse(user.Id, user.Name));
+        // await is optional on Send methods - both patterns work:
+        return Send.Ok(new GetUserResponse(user.Id, user.Name));
     }
-
-    private readonly IUserRepository _repository;
-    public GetUserEndpoint(IUserRepository repository) => _repository = repository;
 }
 
 public sealed record GetUserRequest(int Id);
@@ -64,13 +71,15 @@ public sealed record GetUserResponse(int Id, string Name);
 ```
 Each endpoint class must select exactly one HTTP verb helper (`Get`, `Post`, `Put`, `Patch`, or `Delete`). Create separate endpoint classes when you need multiple verbs for the same resource.
 
+**Note on async/await:** The `Send` methods return `Task<IResult>` for API consistency. You can either `return await Send.Ok(...)` or simply `return Send.Ok(...)` - both work identically. Use `await` on actual I/O operations (database, HTTP calls, etc.).
+
 ## Endpoint Variants
 - `Endpoint<TRequest, TResponse>`: route + request body/params + response payload.
 - `EndpointWithoutRequest<TResponse>`: ex: listings without parameters.
 - `EndpointWithoutResponse<TRequest>`: commands that return `204 No Content` or similar.
 - `Endpoint`: health checks, or triggers that don't require a request body or response payload.
 
-All base classes expose a typed `Send` helper for creating `IResult` instances without repeatedly calling `Results.*`.
+All base classes expose a typed `Send` helper for creating `IResult` instances without repeatedly calling `Results.*`. Common responses like `NoContent()`, `Ok()`, `NotFound()`, and `Unauthorized()` are cached for optimal performance.
 
 ## Request Binding & Validation
 - Route values and query parameters are always inspected for matching property names (case-insensitive).
@@ -78,20 +87,32 @@ All base classes expose a typed `Send` helper for creating `IResult` instances w
 - For multipart form data, the binder inspects form fields plus files and honours custom `FormOptions` if provided.
 - Use `[BindAttribute("PropA", "PropB")]` on the request type to create an allowlist of bindable properties.
 - Use `[BindNever]` on individual properties to exclude them from binding.
-- Validation frameworks (FluentValidation, DataAnnotations, custom logic, etc.) are not integrated. Perform validation inside `HandleAsync` and return the appropriate `Send.BadRequestAsync(...)`/`Send.Problem(...)` response yourself.
+- Validation frameworks (FluentValidation, DataAnnotations, custom logic, etc.) are not integrated. Perform validation inside `HandleAsync` and return the appropriate `Send.BadRequest(...)`/`` response yourself.
 
 ## File Uploads
 When a request type exposes `IFormFile`, `List<IFormFile>`, `IFormFileCollection`, or `StreamFile`, FoxEndpoints automatically switches the binder to form mode.
 
 ```csharp
+using Microsoft.AspNetCore.Mvc;
+
 public sealed record UploadDocumentRequest
 {
+    [FromForm]
     public Guid Id { get; init; }
+    
+    [FromForm]
     public IFormFile? File { get; init; }
 }
 
 public sealed class UploadDocument : EndpointWithoutResponse<UploadDocumentRequest>
 {
+    private readonly IDocumentStorage _storage;
+
+    public UploadDocument(IDocumentStorage storage)
+    {
+        _storage = storage;
+    }
+
     public override void Configure()
     {
         Post("/estimates/{EstimateId}/documents")
@@ -103,14 +124,11 @@ public sealed class UploadDocument : EndpointWithoutResponse<UploadDocumentReque
     public override async Task<IResult> HandleAsync(UploadDocumentRequest request, CancellationToken ct)
     {
         if (request.File is null)
-            return await Send.BadRequestAsync("File is required");
+            return await Send.BadRequest("File is required");
 
         await _storage.SaveAsync(request.Id, request.File, ct);
-        return await Send.NoContentAsync();
+        return await Send.NoContent();
     }
-
-    private readonly IDocumentStorage _storage;
-    public UploadDocument(IDocumentStorage storage) => _storage = storage;
 }
 ```
 
@@ -141,7 +159,7 @@ builder.Services
     });
 ```
 
-Annotate endpoints with `[ApiVersion("2024-10-01"]` (semantic or date-based) and optionally `[ApiExplorerSettings(GroupName = "v2024-10-01")]`. `UseFoxEndpoints` will:
+Annotate endpoints with `[ApiVersion("1.0")]` (semantic) or `[ApiVersion("2024-10-01")]` (date-based) and optionally `[ApiExplorerSettings(GroupName = "v1.0")]`. `UseFoxEndpoints` will:
 - Build a version set from all discovered `ApiVersion` attributes.
 - Map each endpoint to its declared versions.
 - Attach the version set to the underlying route builder.

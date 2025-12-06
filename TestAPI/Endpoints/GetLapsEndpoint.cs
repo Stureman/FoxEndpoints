@@ -26,7 +26,7 @@ public class GetLapsEndpoint : Endpoint<GetLapsRequest, GetLapsResponse>
             Message = $"TrackId: {request.TrackId?.ToString() ?? "null"}, CarId: {request.CarId?.ToString() ?? "null"} has driven many laps"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 

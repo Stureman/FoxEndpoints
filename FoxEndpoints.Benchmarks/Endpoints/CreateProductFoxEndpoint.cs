@@ -23,6 +23,6 @@ public class CreateProductFoxEndpoint : Endpoint<CreateProductRequest, CreatePro
             Success = true
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }

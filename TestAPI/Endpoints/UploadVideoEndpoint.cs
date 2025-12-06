@@ -27,11 +27,11 @@ public sealed class UploadVideoEndpoint : EndpointWithoutResponse<UploadVideoReq
     public override async Task<IResult> HandleAsync(UploadVideoRequest request, CancellationToken ct)
     {
         if (request.Video is null)
-            return await Send.BadRequestAsync("Video file is required.");
+            return await Send.BadRequest("Video file is required.");
 
         await using var fileStream = File.Create(Path.Combine(Path.GetTempPath(), request.Video.FileName ?? "upload.bin"));
         await request.Video.Body.CopyToAsync(fileStream, ct);
-        return await Send.OkAsync();
+        return await Send.Ok();
     }
 }
 

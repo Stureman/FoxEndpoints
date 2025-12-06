@@ -35,12 +35,12 @@ public class AddImageToMomentEndpoint : EndpointWithoutResponse<AddImageRequest>
         // Validation
         if (request.MomentId == Guid.Empty)
         {
-            return await Send.BadRequestAsync("Invalid MomentId");
+            return await Send.BadRequest("Invalid MomentId");
         }
 
         if (request.File == null || request.File.Length == 0)
         {
-            return await Send.BadRequestAsync("File is required");
+            return await Send.BadRequest("File is required");
         }
 
         // In a real application, you would:
@@ -54,7 +54,7 @@ public class AddImageToMomentEndpoint : EndpointWithoutResponse<AddImageRequest>
             request.File.FileName,
             request.File.Length);
 
-        return await Send.NoContentAsync();
+        return await Send.NoContent();
     }
 }
 

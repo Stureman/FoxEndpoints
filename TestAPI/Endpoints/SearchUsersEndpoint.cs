@@ -61,7 +61,7 @@ public class SearchUsersEndpoint : Endpoint<SearchUsersRequest, SearchUsersRespo
             SearchCriteria = $"Name={request.Name}, Age={request.MinAge}-{request.MaxAge}, Active={request.IsActive}"
         };
 
-        return await Send.OkAsync(response);
+        return await Send.Ok(response);
     }
 }
 
