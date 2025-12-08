@@ -30,10 +30,7 @@ public abstract class EndpointWithoutRequest<TResponse> : EndpointBase
     {
         Func<HttpContext, CancellationToken, Task<IResult>> handler = async (HttpContext ctx, CancellationToken ct) =>
         {
-            var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-                ctx.RequestServices);
-            await using var _ = wrapper;
-            var ep = (EndpointWithoutRequest<TResponse>)wrapper.Endpoint;
+            var ep = (EndpointWithoutRequest<TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
             ep.SetContext(ctx);
             try
             {

@@ -1,5 +1,4 @@
 using FoxEndpoints.Binding;
-using FoxEndpoints.Internal;
 using FoxEndpoints.Internal.Discovery;
 using FoxEndpoints.Internal.Factory;
 using Microsoft.AspNetCore.Http;
@@ -32,10 +31,7 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
 		{
 			Func<HttpContext, CancellationToken, Task<IResult>> handler = async (HttpContext ctx, CancellationToken ct) =>
 			{
-				var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-					ctx.RequestServices);
-				await using var _ = wrapper;
-				var ep = (EndpointWithoutResponse<TRequest>)wrapper.Endpoint;
+				var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 				ep.SetContext(ctx);
 				try
 				{
@@ -56,10 +52,7 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
 			{
 				Func<HttpContext, CancellationToken, Task<IResult>> handler = async (HttpContext ctx, CancellationToken ct) =>
 				{
-					var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-						ctx.RequestServices);
-					await using var _ = wrapper;
-					var ep = (EndpointWithoutResponse<TRequest>)wrapper.Endpoint;
+					var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 					ep.SetContext(ctx);
 					try
 					{
@@ -77,10 +70,7 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
 
 			Func<TRequest, HttpContext, CancellationToken, Task<IResult>> bodyHandler = async ([FromBody] TRequest req, HttpContext ctx, CancellationToken ct) =>
 			{
-				var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-					ctx.RequestServices);
-				await using var _ = wrapper;
-				var ep = (EndpointWithoutResponse<TRequest>)wrapper.Endpoint;
+				var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 				ep.SetContext(ctx);
 				try
 				{
@@ -99,10 +89,7 @@ public abstract class EndpointWithoutResponse<TRequest> : EndpointBase
 		{
 			Func<TRequest, HttpContext, CancellationToken, Task<IResult>> handler = async (TRequest req, HttpContext ctx, CancellationToken ct) =>
 			{
-				var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-					ctx.RequestServices);
-				await using var _ = wrapper;
-				var ep = (EndpointWithoutResponse<TRequest>)wrapper.Endpoint;
+				var ep = (EndpointWithoutResponse<TRequest>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 				ep.SetContext(ctx);
 				return await ep.HandleAsync(req, ct);
 			};
