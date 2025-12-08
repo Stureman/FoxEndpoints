@@ -1,5 +1,4 @@
 using FoxEndpoints.Binding;
-using FoxEndpoints.Internal;
 using FoxEndpoints.Internal.Discovery;
 using FoxEndpoints.Internal.Factory;
 using FoxEndpoints.Results;
@@ -38,11 +37,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 		{
 			return async (HttpContext ctx, CancellationToken ct) =>
 			{
-				var wrapper =
-					(EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-						ctx.RequestServices);
-				await using var _ = wrapper;
-				var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
+				var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 				ep.SetContext(ctx);
 				try
 				{
@@ -62,11 +57,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 			{
 				return async (HttpContext ctx, CancellationToken ct) =>
 				{
-					var wrapper =
-						(EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-							ctx.RequestServices);
-					await using var _ = wrapper;
-					var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
+					var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 					ep.SetContext(ctx);
 					try
 					{
@@ -82,11 +73,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 
 			return async ([FromBody] TRequest req, HttpContext ctx, CancellationToken ct) =>
 			{
-				var wrapper =
-					(EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-						ctx.RequestServices);
-				await using var _ = wrapper;
-				var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
+				var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 				ep.SetContext(ctx);
 				try
 				{
@@ -102,11 +89,7 @@ public abstract class Endpoint<TRequest, TResponse> : EndpointBase
 
 		return async (TRequest req, HttpContext ctx, CancellationToken ct) =>
 		{
-			var wrapper =
-				(EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType,
-					ctx.RequestServices);
-			await using var _ = wrapper;
-			var ep = (Endpoint<TRequest, TResponse>)wrapper.Endpoint;
+			var ep = (Endpoint<TRequest, TResponse>)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 			ep.SetContext(ctx);
 			return await ep.HandleAsync(req, ct);
 		};
@@ -129,9 +112,7 @@ public abstract class Endpoint : EndpointBase
 	internal static Delegate BuildHandler(Type endpointType, string httpMethod) => 
 		async (HttpContext ctx, CancellationToken ct) =>
 	{
-		var wrapper = (EndpointFactory.ScopedEndpointWrapper)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
-		await using var _ = wrapper;
-		var ep = (Endpoint)wrapper.Endpoint;
+		var ep = (Endpoint)EndpointFactory.CreateInstance(endpointType, ctx.RequestServices);
 		ep.SetContext(ctx);
 		return await ep.HandleAsync(ct);
 	};

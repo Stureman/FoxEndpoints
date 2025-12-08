@@ -23,6 +23,7 @@ internal static class EndpointFactory
 	/// <summary>
 	/// Builds a compiled factory function for creating endpoint instances with dependency injection.
 	/// Uses expression trees for optimal performance.
+	/// Uses the request-scoped service provider directly to ensure scoped services from middleware are accessible.
 	/// </summary>
 	public static Func<IServiceProvider, object> BuildFactory(Type endpointType)
 	{
@@ -49,22 +50,7 @@ internal static class EndpointFactory
 
 		var body = Expression.New(ctor, args);
 
-		var activator = Expression.Lambda<Func<IServiceProvider, object>>(body, providerParam).Compile();
-
-		return sp =>
-		{
-			var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
-			var scope = scopeFactory.CreateScope();
-			try
-			{
-				return new ScopedEndpointWrapper(scope, activator(scope.ServiceProvider));
-			}
-			catch
-			{
-				scope.Dispose();
-				throw;
-			}
-		};
+		return Expression.Lambda<Func<IServiceProvider, object>>(body, providerParam).Compile();
 	}
 
 	/// <summary>
@@ -88,37 +74,5 @@ internal static class EndpointFactory
 			.ToArray();
 
 		return ctor.Invoke(parameters);
-	}
-
-	internal sealed class ScopedEndpointWrapper : IDisposable, IAsyncDisposable
-	{
-		private readonly IServiceScope _scope;
-		public object Endpoint { get; }
-
-		public ScopedEndpointWrapper(IServiceScope scope, object endpoint)
-		{
-			_scope = scope;
-			Endpoint = endpoint;
-		}
-
-		public void Dispose()
-		{
-			if (Endpoint is IDisposable disposable)
-				disposable.Dispose();
-			_scope.Dispose();
-		}
-
-		public async ValueTask DisposeAsync()
-		{
-			if (Endpoint is IAsyncDisposable asyncDisposable)
-				await asyncDisposable.DisposeAsync();
-			else if (Endpoint is IDisposable disposable)
-				disposable.Dispose();
-
-			if (_scope is IAsyncDisposable asyncScope)
-				await asyncScope.DisposeAsync();
-			else
-				_scope.Dispose();
-		}
 	}
 }
